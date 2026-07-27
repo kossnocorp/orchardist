@@ -207,6 +207,9 @@ importers:
 
   .:
     devDependencies:
+      '@types/node':
+        specifier: ^26.1.1
+        version: 26.1.1
       '@types/vscode':
         specifier: ^1.125.0
         version: 1.125.0
@@ -224,16 +227,16 @@ importers:
         version: 1.75.0
       rollup-plugin-node-externals:
         specifier: ^9.0.1
-        version: 9.0.1(vite@8.1.5)
+        version: 9.0.1(vite@8.1.5(@types/node@26.1.1))
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
       vite:
         specifier: ^8.1.5
-        version: 8.1.5
+        version: 8.1.5(@types/node@26.1.1)
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(vite@8.1.5)
+        version: 4.1.10(@types/node@26.1.1)(vite@8.1.5(@types/node@26.1.1))
 
 packages:
 
@@ -848,6 +851,9 @@ packages:
 
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
+
+  '@types/node@26.1.1':
+    resolution: {integrity: sha512-nxAkRSVkN1Y0JC1W8ky/fTfkGsMmcrRsbx+3XoZE+rMOX71kLYTV7fLXpqud1GpbpP5TuffXFqfX7fH2GgZREw==}
 
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -2129,6 +2135,9 @@ packages:
   underscore@1.13.8:
     resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
 
+  undici-types@8.3.0:
+    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
+
   undici@7.29.0:
     resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
     engines: {node: '>=20.18.1'}
@@ -2787,6 +2796,10 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
+  '@types/node@26.1.1':
+    dependencies:
+      undici-types: 8.3.0
+
   '@types/normalize-package-data@2.4.4': {}
 
   '@types/sarif@2.1.7': {}
@@ -2870,13 +2883,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.10(vite@8.1.5)':
+  '@vitest/mocker@4.1.10(vite@8.1.5(@types/node@26.1.1))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.1.5
+      vite: 8.1.5(@types/node@26.1.1)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -3870,9 +3883,9 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.1.5
       '@rolldown/binding-win32-x64-msvc': 1.1.5
 
-  rollup-plugin-node-externals@9.0.1(vite@8.1.5):
+  rollup-plugin-node-externals@9.0.1(vite@8.1.5(@types/node@26.1.1)):
     optionalDependencies:
-      vite: 8.1.5
+      vite: 8.1.5(@types/node@26.1.1)
 
   run-applescript@7.1.0: {}
 
@@ -4106,6 +4119,8 @@ snapshots:
 
   underscore@1.13.8: {}
 
+  undici-types@8.3.0: {}
+
   undici@7.29.0: {}
 
   unicorn-magic@0.1.0: {}
@@ -4126,7 +4141,7 @@ snapshots:
 
   version-range@4.15.0: {}
 
-  vite@8.1.5:
+  vite@8.1.5(@types/node@26.1.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -4134,12 +4149,13 @@ snapshots:
       rolldown: 1.1.5
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 26.1.1
       fsevents: 2.3.3
 
-  vitest@4.1.10(vite@8.1.5):
+  vitest@4.1.10(@types/node@26.1.1)(vite@8.1.5(@types/node@26.1.1)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.1.5)
+      '@vitest/mocker': 4.1.10(vite@8.1.5(@types/node@26.1.1))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -4156,8 +4172,10 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.1.5
+      vite: 8.1.5(@types/node@26.1.1)
       why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 26.1.1
     transitivePeerDependencies:
       - msw
 

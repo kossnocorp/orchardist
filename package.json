@@ -13,6 +13,7 @@
   "type": "module",
   "main": "./dist/dev/index.cjs",
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@types/vscode": "^1.125.0",
     "@vscode/vsce": "^3.9.2",
     "ovsx": "^1.0.2",
@@ -26,12 +27,44 @@
   "contributes": {
     "commands": [
       {
-        "command": "orchardist.helloWorld",
-        "title": "Orchardist: Hello World",
+        "command": "orchardist.refresh",
+        "title": "Refresh Workspace Folders",
         "category": "Orchardist"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Orchardist",
+      "properties": {
+        "orchardist.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "description": "Automatically synchronize workspace folders."
+        },
+        "orchardist.directory": {
+          "type": "string",
+          "default": "./trees",
+          "scope": "window",
+          "description": "Directory, relative to the main workspace folder, whose immediate child directories are added to the workspace."
+        },
+        "orchardist.alwaysBootstrap": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Bootstrap a detected worktree workspace without asking for confirmation."
+        },
+        "orchardist.mainName": {
+          "type": "string",
+          "default": "main",
+          "scope": "window",
+          "description": "Workspace display name for the main folder."
+        }
+      }
+    }
   },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "devEngines": {
     "packageManager": {
       "name": "pnpm",

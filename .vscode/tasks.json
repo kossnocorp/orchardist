@@ -28,7 +28,7 @@
         ],
         "background": {
           "activeOnStart": true,
-          "beginsPattern": ".*built in.*",
+          "beginsPattern": ".*build started.*",
           "endsPattern": ".*built in.*"
         }
       }
