@@ -1,45 +1,57 @@
-import * as vscode from "vscode";
+import { watch, type FSWatcher } from "node:fs";
 import * as path from "node:path";
-import { addGitignoreEntry, workspaceFileContent } from "./bootstrap.ts";
+import * as vscode from "vscode";
 import {
-  planDirectoryExclusion,
-  planWorkspaceFolders,
-  workspaceFoldersEqual,
-  type ExcludeValue,
-  type ManagedExclusion,
-} from "./reconcile.ts";
+  addGitignoreEntry,
+  resolveWorkspaceFileName,
+  workspaceFileContent,
+} from "./bootstrap.ts";
+import { discoverGitRepository, type GitRepositorySnapshot } from "./git.ts";
+import { planWorkspaceFolders, workspaceFoldersEqual } from "./reconcile.ts";
 
 const configurationSection = "orchardist";
 const refreshCommand = "orchardist.refresh";
-const mainFolderKey = "mainFolder";
-const managedRootKey = "managedRoot";
-const managedExclusionKey = "managedExclusion";
-const managedFolderExclusionKey = "managedFolderExclusion";
+const managedWorktreesKey = "managedWorktrees";
 const bootstrapAction = "Bootstrap Workspace";
+
+interface GitExtension {
+  readonly enabled: boolean;
+  getAPI(version: 1): { readonly git: { readonly path: string } };
+}
 
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  const mainFolder = resolveMainFolder(context);
-  if (!mainFolder) return;
+  const openedFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!openedFolder) return;
 
   const configuration = vscode.workspace.getConfiguration(
     configurationSection,
-    mainFolder.uri,
+    openedFolder.uri,
   );
   if (!configuration.get("enabled", true)) return;
 
-  const directory = configuration.get("directory", "./trees");
-  const mainName = configuration.get("mainName", "main");
-  const treesUri = vscode.Uri.joinPath(mainFolder.uri, directory);
-  const entries = await readDirectories(treesUri);
-  const workspaceUri = vscode.Uri.joinPath(
-    mainFolder.uri,
-    `${projectName(mainFolder.uri)}.code-workspace`,
+  const gitPath = await resolveGitPath();
+  let snapshot: GitRepositorySnapshot;
+  try {
+    snapshot = await discoverGitRepository(gitPath, openedFolder.uri.fsPath);
+  } catch (error) {
+    await showGitError(error);
+    return;
+  }
+
+  const mainUri = vscode.Uri.file(snapshot.main.path);
+  const workspaceFileName = resolveWorkspaceFileName(
+    configuration.get(
+      "workspaceFileName",
+      "${workspaceFolderBasename}.wt.code-workspace",
+    ),
+    projectName(mainUri),
   );
+  const workspaceUri = vscode.Uri.joinPath(mainUri, workspaceFileName);
 
   if (!isCurrentWorkspace(workspaceUri)) {
-    if (entries.length === 0) return;
+    if (snapshot.linked.length === 0) return;
 
     const alwaysBootstrap = configuration.get("alwaysBootstrap", false);
     const choice = alwaysBootstrap
@@ -50,18 +62,15 @@ export async function activate(
         );
     if (choice !== bootstrapAction) return;
 
-    await bootstrapWorkspace(
-      context,
-      mainFolder,
-      directory,
-      mainName,
-      entries,
-      workspaceUri,
-    );
+    await bootstrapWorkspace(configuration, snapshot, workspaceUri);
     return;
   }
 
-  let watcher: vscode.FileSystemWatcher | undefined;
+  const mainFolder =
+    vscode.workspace.getWorkspaceFolder(mainUri) ??
+    vscode.workspace.workspaceFolders?.[0];
+  if (!mainFolder) return;
+
   let timer: NodeJS.Timeout | undefined;
 
   const sync = async (): Promise<void> => {
@@ -71,86 +80,139 @@ export async function activate(
     );
     if (!currentConfiguration.get("enabled", true)) return;
 
-    const currentDirectory = currentConfiguration.get("directory", "./trees");
-    const currentMainName = currentConfiguration.get("mainName", "main");
-    const currentTreesUri = vscode.Uri.joinPath(
-      mainFolder.uri,
-      currentDirectory,
-    );
-    const currentEntries = await readDirectories(currentTreesUri);
-    const desired = currentEntries.map((name) => ({
-      uri: vscode.Uri.joinPath(currentTreesUri, name),
-      name,
+    const current = await discoverGitRepository(gitPath, mainFolder.uri.fsPath);
+    const mainName = currentConfiguration.get("mainName", "main");
+    const desired = current.linked.map((worktree) => ({
+      uri: vscode.Uri.file(worktree.path),
+      name: path.basename(worktree.path),
     }));
+    const previouslyManaged =
+      context.workspaceState.get<readonly string[]>(managedWorktreesKey) ?? [];
+    await context.workspaceState.update(
+      managedWorktreesKey,
+      desired.map((folder) => folder.uri.toString()),
+    );
 
-    const managedRoot = currentTreesUri.toString();
-    const previousManagedRoot =
-      context.workspaceState.get<string>(managedRootKey);
-    await context.workspaceState.update(managedRootKey, managedRoot);
-    await configureMainFolderExclusion(context, mainFolder, currentDirectory);
     reconcileWorkspaceFolders(
-      mainFolder,
-      currentMainName,
-      [previousManagedRoot, managedRoot].filter(
-        (uri): uri is string => uri !== undefined,
-      ),
+      vscode.Uri.file(current.main.path),
+      mainName,
+      previouslyManaged,
       desired,
     );
   };
 
+  const syncWithErrors = async (): Promise<void> => {
+    try {
+      await sync();
+    } catch (error) {
+      await showGitError(error);
+    }
+  };
+
   const scheduleSync = (): void => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => void sync(), 200);
+    timer = setTimeout(() => void syncWithErrors(), 200);
   };
 
-  const configureWatcher = (): void => {
-    watcher?.dispose();
-    const directory = vscode.workspace
-      .getConfiguration(configurationSection, mainFolder.uri)
-      .get("directory", "./trees");
-    watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(
-        mainFolder,
-        `${directory.replace(/^\.\//, "")}/*`,
-      ),
-    );
-    context.subscriptions.push(watcher);
-    watcher.onDidCreate(scheduleSync);
-    watcher.onDidDelete(scheduleSync);
-  };
+  const watcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(
+      vscode.Uri.file(snapshot.commonDirectory),
+      "worktrees/**",
+    ),
+  );
+  watcher.onDidCreate(scheduleSync);
+  watcher.onDidChange(scheduleSync);
+  watcher.onDidDelete(scheduleSync);
+  const nativeWatcher = createNativeWorktreeWatcher(
+    snapshot.commonDirectory,
+    scheduleSync,
+  );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand(refreshCommand, sync),
+    watcher,
+    nativeWatcher,
+    vscode.commands.registerCommand(refreshCommand, syncWithErrors),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (!event.affectsConfiguration(configurationSection, mainFolder.uri))
-        return;
-      configureWatcher();
-      scheduleSync();
+      if (event.affectsConfiguration(configurationSection, mainFolder.uri)) {
+        scheduleSync();
+      }
     }),
     { dispose: () => timer && clearTimeout(timer) },
   );
 
-  configureWatcher();
-  void sync();
+  await syncWithErrors();
 }
 
 export function deactivate(): void {}
 
+function createNativeWorktreeWatcher(
+  commonDirectory: string,
+  onDidChange: () => void,
+): vscode.Disposable {
+  const worktreesDirectory = path.join(commonDirectory, "worktrees");
+  let watcher: FSWatcher | undefined;
+  let disposed = false;
+
+  const watchCommonDirectory = (): void => {
+    if (disposed) return;
+    watcher?.close();
+    try {
+      watcher = watch(commonDirectory, { persistent: false }, (_, filename) => {
+        if (filename?.toString() !== "worktrees") return;
+        onDidChange();
+        watchWorktreesDirectory();
+      });
+      watcher.on("error", () => watcher?.close());
+    } catch {
+      watcher = undefined;
+    }
+  };
+
+  const watchWorktreesDirectory = (): void => {
+    if (disposed) return;
+    watcher?.close();
+    try {
+      watcher = watch(worktreesDirectory, { persistent: false }, onDidChange);
+      watcher.on("error", watchCommonDirectory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        watchCommonDirectory();
+      } else {
+        watcher = undefined;
+      }
+    }
+  };
+
+  watchWorktreesDirectory();
+  return {
+    dispose: () => {
+      disposed = true;
+      watcher?.close();
+    },
+  };
+}
+
 async function bootstrapWorkspace(
-  context: vscode.ExtensionContext,
-  mainFolder: vscode.WorkspaceFolder,
-  directory: string,
-  mainName: string,
-  entries: readonly string[],
+  configuration: vscode.WorkspaceConfiguration,
+  snapshot: GitRepositorySnapshot,
   workspaceUri: vscode.Uri,
 ): Promise<void> {
-  await configureMainFolderExclusion(context, mainFolder, directory);
-  await addWorkspaceToGitignore(mainFolder.uri, workspaceUri);
+  if (configuration.get("ignoreWorkspaceFile", true)) {
+    await addWorkspaceToGitignore(
+      vscode.Uri.file(snapshot.main.path),
+      workspaceUri,
+    );
+  }
 
+  const mainName = configuration.get("mainName", "main");
   await vscode.workspace.fs.writeFile(
     workspaceUri,
     new TextEncoder().encode(
-      workspaceFileContent(directory, mainName, entries),
+      workspaceFileContent(
+        snapshot.main.path,
+        mainName,
+        snapshot.linked.map((worktree) => worktree.path),
+      ),
     ),
   );
   await vscode.commands.executeCommand(
@@ -164,8 +226,6 @@ async function addWorkspaceToGitignore(
   rootUri: vscode.Uri,
   workspaceUri: vscode.Uri,
 ): Promise<void> {
-  if (!(await exists(vscode.Uri.joinPath(rootUri, ".git")))) return;
-
   const gitignoreUri = vscode.Uri.joinPath(rootUri, ".gitignore");
   const filename = path.basename(workspaceUri.fsPath);
   let current = "";
@@ -185,14 +245,23 @@ async function addWorkspaceToGitignore(
   );
 }
 
-async function exists(uri: vscode.Uri): Promise<boolean> {
+async function resolveGitPath(): Promise<string> {
+  const extension = vscode.extensions.getExtension<GitExtension>("vscode.git");
+  if (!extension) return "git";
+
   try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch (error) {
-    if (isFileNotFound(error)) return false;
-    throw error;
+    const gitExtension = await extension.activate();
+    return gitExtension.enabled ? gitExtension.getAPI(1).git.path : "git";
+  } catch {
+    return "git";
   }
+}
+
+async function showGitError(error: unknown): Promise<void> {
+  const message = error instanceof Error ? error.message : String(error);
+  await vscode.window.showErrorMessage(
+    `Orchardist could not read Git worktrees: ${message}`,
+  );
 }
 
 function isFileNotFound(error: unknown): boolean {
@@ -209,96 +278,10 @@ function projectName(uri: vscode.Uri): string {
   return path.basename(uri.fsPath);
 }
 
-async function configureMainFolderExclusion(
-  context: vscode.ExtensionContext,
-  mainFolder: vscode.WorkspaceFolder,
-  directory: string,
-): Promise<void> {
-  await removeLegacyWorkspaceExclusion(context);
-
-  const relativeDirectory = directory.replace(/^\.\//, "").replace(/\/$/, "");
-  const pattern = relativeDirectory;
-  const configuration = vscode.workspace.getConfiguration(
-    "files",
-    mainFolder.uri,
-  );
-  const current =
-    configuration.inspect<Record<string, ExcludeValue>>("exclude")
-      ?.workspaceFolderValue ?? {};
-  const previous = context.workspaceState.get<ManagedExclusion>(
-    managedFolderExclusionKey,
-  );
-  const { exclude, managed } = planDirectoryExclusion(
-    current,
-    previous,
-    pattern,
-  );
-
-  await context.workspaceState.update(managedFolderExclusionKey, managed);
-  await configuration.update(
-    "exclude",
-    exclude,
-    vscode.ConfigurationTarget.WorkspaceFolder,
-  );
-}
-
-async function removeLegacyWorkspaceExclusion(
-  context: vscode.ExtensionContext,
-): Promise<void> {
-  const managed =
-    context.workspaceState.get<ManagedExclusion>(managedExclusionKey);
-  if (!managed) return;
-
-  const configuration = vscode.workspace.getConfiguration("files");
-  const exclude = {
-    ...configuration.inspect<Record<string, ExcludeValue>>("exclude")
-      ?.workspaceValue,
-  };
-  if (exclude[managed.pattern] === true) {
-    if (managed.previousValue === null) delete exclude[managed.pattern];
-    else exclude[managed.pattern] = managed.previousValue;
-    await configuration.update(
-      "exclude",
-      exclude,
-      vscode.ConfigurationTarget.Workspace,
-    );
-  }
-
-  await context.workspaceState.update(managedExclusionKey, undefined);
-}
-
-function resolveMainFolder(
-  context: vscode.ExtensionContext,
-): vscode.WorkspaceFolder | undefined {
-  const folders = vscode.workspace.workspaceFolders;
-  if (!folders?.length) return undefined;
-
-  const savedUri = context.workspaceState.get<string>(mainFolderKey);
-  const mainFolder =
-    folders.find((folder) => folder.uri.toString() === savedUri) ?? folders[0];
-  if (!mainFolder) return undefined;
-
-  void context.workspaceState.update(mainFolderKey, mainFolder.uri.toString());
-  return mainFolder;
-}
-
-async function readDirectories(uri: vscode.Uri): Promise<string[]> {
-  try {
-    const entries = await vscode.workspace.fs.readDirectory(uri);
-    return entries
-      .filter(([, type]) => type === vscode.FileType.Directory)
-      .map(([name]) => name)
-      .sort((left, right) => left.localeCompare(right));
-  } catch (error) {
-    if (isFileNotFound(error)) return [];
-    throw error;
-  }
-}
-
 function reconcileWorkspaceFolders(
-  mainFolder: vscode.WorkspaceFolder,
+  mainUri: vscode.Uri,
   mainName: string,
-  managedRootUris: readonly string[],
+  previouslyManagedUris: readonly string[],
   desired: readonly { uri: vscode.Uri; name: string }[],
 ): void {
   const current = vscode.workspace.workspaceFolders ?? [];
@@ -307,9 +290,9 @@ function reconcileWorkspaceFolders(
       uri: folder.uri.toString(),
       name: folder.name,
     })),
-    mainFolder.uri.toString(),
+    mainUri.toString(),
     mainName,
-    managedRootUris,
+    previouslyManagedUris,
     desired.map((folder) => ({
       uri: folder.uri.toString(),
       name: folder.name,

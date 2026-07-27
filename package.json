@@ -1,7 +1,7 @@
 {
   "name": "orchardist",
   "displayName": "Orchardist",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Sync VS Code workspace with Git worktrees",
   "keywords": [
     "git",
@@ -42,12 +42,6 @@
           "scope": "window",
           "description": "Automatically synchronize workspace folders."
         },
-        "orchardist.directory": {
-          "type": "string",
-          "default": "./trees",
-          "scope": "window",
-          "description": "Directory, relative to the main workspace folder, whose immediate child directories are added to the workspace."
-        },
         "orchardist.alwaysBootstrap": {
           "type": "boolean",
           "default": false,
@@ -59,6 +53,18 @@
           "default": "main",
           "scope": "window",
           "description": "Workspace display name for the main folder."
+        },
+        "orchardist.workspaceFileName": {
+          "type": "string",
+          "default": "${workspaceFolderBasename}.wt.code-workspace",
+          "scope": "window",
+          "description": "Workspace filename. ${workspaceFolderBasename} expands to the main worktree directory name."
+        },
+        "orchardist.ignoreWorkspaceFile": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "description": "Automatically add the generated workspace file to .gitignore."
         }
       }
     }

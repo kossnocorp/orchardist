@@ -25,6 +25,10 @@ Defaults to `false`. Set to `true` to automatically bootstrap a workspace regard
 
 Defaults to `main`. Set the main workspace name.
 
+### `orchardist.workspaceFileName`
+
+Defaults to `${workspaceFolderBasename}.wt.code-workspace`. Set the workspace filename to customize the workspace name displayed by VS Code. The `${workspaceFolderBasename}` variable expands to the main worktree directory name.
+
 ### `orchardist.ignoreWorkspaceFile`
 
 Defaults to `true`. Set to `false` to stop the extension from automatically adding the workspace file to `.gitignore`.

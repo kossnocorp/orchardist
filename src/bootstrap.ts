@@ -1,20 +1,37 @@
-export function workspaceFileContent(
-  directory: string,
-  mainName: string,
-  entries: readonly string[],
+import * as path from "node:path";
+
+const workspaceFolderBasenameVariable = "${workspaceFolderBasename}";
+
+export function resolveWorkspaceFileName(
+  template: string,
+  workspaceFolderBasename: string,
 ): string {
-  const relativeDirectory = directory.replace(/^\.\//, "").replace(/\/$/, "");
+  return template.replaceAll(
+    workspaceFolderBasenameVariable,
+    workspaceFolderBasename,
+  );
+}
+
+export function workspaceFileContent(
+  mainPath: string,
+  mainName: string,
+  linkedPaths: readonly string[],
+): string {
   const workspace = {
     folders: [
       { path: ".", name: mainName },
-      ...entries.map((name) => ({
-        path: `${relativeDirectory}/${name}`,
-        name,
+      ...linkedPaths.map((worktreePath) => ({
+        path: normalizeWorkspacePath(path.relative(mainPath, worktreePath)),
+        name: path.basename(worktreePath),
       })),
     ],
   };
 
   return `${JSON.stringify(workspace, undefined, 2)}\n`;
+}
+
+function normalizeWorkspacePath(workspacePath: string): string {
+  return workspacePath.split(path.sep).join("/");
 }
 
 export function addGitignoreEntry(current: string, filename: string): string {

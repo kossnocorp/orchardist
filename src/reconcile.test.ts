@@ -1,64 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  planDirectoryExclusion,
-  planWorkspaceFolders,
-  workspaceFoldersEqual,
-} from "./reconcile.ts";
-
-describe("planDirectoryExclusion", () => {
-  it("adds the managed directory while preserving existing exclusions", () => {
-    expect(
-      planDirectoryExclusion({ "**/.git": true }, undefined, "trees"),
-    ).toEqual({
-      exclude: { "**/.git": true, trees: true },
-      managed: { pattern: "trees", previousValue: null },
-    });
-  });
-
-  it("removes its old entry when the managed directory changes", () => {
-    expect(
-      planDirectoryExclusion(
-        { trees: true, "**/.git": true },
-        { pattern: "trees", previousValue: null },
-        "worktrees",
-      ),
-    ).toEqual({
-      exclude: { "**/.git": true, worktrees: true },
-      managed: { pattern: "worktrees", previousValue: null },
-    });
-  });
-
-  it("reapplies an existing managed exclusion when it is missing", () => {
-    expect(
-      planDirectoryExclusion(
-        {},
-        { pattern: "trees", previousValue: null },
-        "trees",
-      ),
-    ).toEqual({
-      exclude: { trees: true },
-      managed: { pattern: "trees", previousValue: null },
-    });
-  });
-
-  it("restores a previous value and preserves later user changes", () => {
-    expect(
-      planDirectoryExclusion(
-        { trees: true },
-        { pattern: "trees", previousValue: false },
-        "worktrees",
-      ).exclude,
-    ).toEqual({ trees: false, worktrees: true });
-
-    expect(
-      planDirectoryExclusion(
-        { trees: false },
-        { pattern: "trees", previousValue: null },
-        "worktrees",
-      ).exclude,
-    ).toEqual({ trees: false, worktrees: true });
-  });
-});
+import { planWorkspaceFolders, workspaceFoldersEqual } from "./reconcile.ts";
 
 describe("planWorkspaceFolders", () => {
   it("renames the main folder and adds desired directories in order", () => {
@@ -90,7 +31,7 @@ describe("planWorkspaceFolders", () => {
         ],
         "file:///repo",
         "main",
-        ["file:///repo/trees"],
+        ["file:///repo/trees/deleted"],
         [],
       ),
     ).toEqual([
@@ -99,21 +40,23 @@ describe("planWorkspaceFolders", () => {
     ]);
   });
 
-  it("removes folders from the previously configured directory", () => {
+  it("removes previously managed external worktrees by exact URI", () => {
     expect(
       planWorkspaceFolders(
         [
           { uri: "file:///repo", name: "main" },
-          { uri: "file:///repo/old/alpha", name: "alpha" },
+          { uri: "file:///external/alpha", name: "alpha" },
+          { uri: "file:///external/manual", name: "manual" },
         ],
         "file:///repo",
         "main",
-        ["file:///repo/old", "file:///repo/new"],
-        [{ uri: "file:///repo/new/beta", name: "beta" }],
+        ["file:///external/alpha"],
+        [{ uri: "file:///elsewhere/beta", name: "beta" }],
       ),
     ).toEqual([
       { uri: "file:///repo", name: "main" },
-      { uri: "file:///repo/new/beta", name: "beta" },
+      { uri: "file:///external/manual", name: "manual" },
+      { uri: "file:///elsewhere/beta", name: "beta" },
     ]);
   });
 });
