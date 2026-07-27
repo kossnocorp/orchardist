@@ -1,0 +1,45 @@
+{
+  "name": "orchardist",
+  "version": "0.0.0",
+  "description": "Automatically mount Git worktrees as VS Code workspaces",
+  "keywords": [
+    "git",
+    "worktree"
+  ],
+  "license": "MIT",
+  "author": "Sasha Koss <koss@nocorp.me>",
+  "repository": "https://github.com/kossnocorp/orchardist",
+  "publisher": "nocorp",
+  "type": "module",
+  "main": "./dist/dev/index.cjs",
+  "devDependencies": {
+    "@types/vscode": "^1.125.0",
+    "@vscode/vsce": "^3.9.2",
+    "ovsx": "^1.0.2",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
+    "rollup-plugin-node-externals": "^9.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "orchardist.helloWorld",
+        "title": "Orchardist: Hello World",
+        "category": "Orchardist"
+      }
+    ]
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.17.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "vscode": "^1.125.0"
+  }
+}

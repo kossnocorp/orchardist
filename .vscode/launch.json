@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "dev",
+      "type": "extensionHost",
+      "request": "launch",
+      "preLaunchTask": "dev",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/dev/**/*.js"],
+      "autoAttachChildProcesses": true
+    }
+  ]
+}

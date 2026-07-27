@@ -1,0 +1,8 @@
+{
+  // Oxfmt
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+
+  // TypeScript
+  "js/ts.experimental.useTsgo": true,
+  "js/ts.tsdk.path": "./node_modules/typescript"
+}
