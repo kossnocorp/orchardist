@@ -1,5 +1,6 @@
 {
   "name": "orchardist",
+  "displayName": "Orchardist",
   "version": "0.1.0",
   "description": "Sync VS Code workspace with Git worktrees",
   "keywords": [
