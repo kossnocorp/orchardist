@@ -1,7 +1,7 @@
 {
   "name": "orchardist",
-  "version": "0.0.0",
-  "description": "Automatically mount Git worktrees as VS Code workspaces",
+  "version": "0.1.0",
+  "description": "Sync VS Code workspace with Git worktrees",
   "keywords": [
     "git",
     "worktree"
