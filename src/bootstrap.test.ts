@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addGitignoreEntry,
+  focusedWorkspaceFolder,
+  focusedWorktreeName,
   resolveWorkspaceFileName,
   workspaceFileContent,
 } from "./bootstrap.ts";
@@ -38,6 +40,35 @@ describe("workspaceFileContent", () => {
         { path: "../external/beta", name: "beta" },
       ],
     });
+  });
+});
+
+describe("focusedWorkspaceFolder", () => {
+  it("reads a focused worktree from a JSONC workspace", () => {
+    expect(
+      focusedWorkspaceFolder(
+        `{
+          // Focus is persisted in the folder name.
+          "folders": [{ "path": "../feature", "name": "feature (focused)" }]
+        }`,
+        "/repo/main",
+      ),
+    ).toEqual({ path: "/repo/feature", name: "feature" });
+  });
+
+  it("ignores ordinary workspace folders", () => {
+    expect(
+      focusedWorkspaceFolder(
+        `{ "folders": [{ "path": ".", "name": "main" }] }`,
+        "/repo/main",
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("focusedWorktreeName", () => {
+  it("adds the persisted focus marker", () => {
+    expect(focusedWorktreeName("feature")).toBe("feature (focused)");
   });
 });
 

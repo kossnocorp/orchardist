@@ -13,6 +13,9 @@
   "publisher": "nocorp",
   "type": "module",
   "main": "./dist/dev/index.cjs",
+  "dependencies": {
+    "jsonc-parser": "^3.3.1"
+  },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "@types/vscode": "^1.125.0",
@@ -28,11 +31,28 @@
   "contributes": {
     "commands": [
       {
-        "command": "orchardist.refresh",
-        "title": "Refresh Workspace Folders",
+        "command": "orchardist.focusWorktree",
+        "title": "Focus Worktree",
+        "category": "Orchardist"
+      },
+      {
+        "command": "orchardist.unfocusWorktree",
+        "title": "Unfocus Worktree",
         "category": "Orchardist"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "orchardist.focusWorktree",
+          "when": "orchardist.managedWorkspace && !orchardist.focusedWorktree"
+        },
+        {
+          "command": "orchardist.unfocusWorktree",
+          "when": "orchardist.managedWorkspace && orchardist.focusedWorktree"
+        }
+      ]
+    },
     "configuration": {
       "title": "Orchardist",
       "properties": {
@@ -70,7 +90,7 @@
     }
   },
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "devEngines": {
     "packageManager": {

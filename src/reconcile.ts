@@ -14,13 +14,11 @@ export function planWorkspaceFolders(
     ...previouslyManagedUris,
     ...desired.map((folder) => folder.uri),
   ]);
-  const preserved = current
-    .filter((folder) => folder.uri === mainUri || !managedUris.has(folder.uri))
-    .map((folder) =>
-      folder.uri === mainUri ? { ...folder, name: mainName } : folder,
-    );
+  const preserved = current.filter(
+    (folder) => folder.uri !== mainUri && !managedUris.has(folder.uri),
+  );
 
-  return [...preserved, ...desired];
+  return [{ uri: mainUri, name: mainName }, ...preserved, ...desired];
 }
 
 export function workspaceFoldersEqual(

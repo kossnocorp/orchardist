@@ -59,6 +59,30 @@ describe("planWorkspaceFolders", () => {
       { uri: "file:///elsewhere/beta", name: "beta" },
     ]);
   });
+
+  it("restores the main folder after focusing a linked worktree", () => {
+    expect(
+      planWorkspaceFolders(
+        [
+          {
+            uri: "file:///repo/trees/alpha",
+            name: "alpha (focused)",
+          },
+        ],
+        "file:///repo",
+        "main",
+        ["file:///repo/trees/alpha", "file:///repo/trees/beta"],
+        [
+          { uri: "file:///repo/trees/alpha", name: "alpha" },
+          { uri: "file:///repo/trees/beta", name: "beta" },
+        ],
+      ),
+    ).toEqual([
+      { uri: "file:///repo", name: "main" },
+      { uri: "file:///repo/trees/alpha", name: "alpha" },
+      { uri: "file:///repo/trees/beta", name: "beta" },
+    ]);
+  });
 });
 
 describe("workspaceFoldersEqual", () => {

@@ -1,6 +1,13 @@
 import * as path from "node:path";
+import { parse } from "jsonc-parser";
 
 const workspaceFolderBasenameVariable = "${workspaceFolderBasename}";
+const focusedSuffix = " (focused)";
+
+export interface FocusedWorkspaceFolder {
+  readonly path: string;
+  readonly name: string;
+}
 
 export function resolveWorkspaceFileName(
   template: string,
@@ -28,6 +35,33 @@ export function workspaceFileContent(
   };
 
   return `${JSON.stringify(workspace, undefined, 2)}\n`;
+}
+
+export function focusedWorkspaceFolder(
+  content: string,
+  workspaceDirectory: string,
+): FocusedWorkspaceFolder | undefined {
+  const workspace = parse(content) as {
+    folders?: { path?: unknown; name?: unknown }[];
+  } | null;
+  const folder = workspace?.folders?.find(
+    (candidate) =>
+      typeof candidate.path === "string" &&
+      typeof candidate.name === "string" &&
+      candidate.name.endsWith(focusedSuffix),
+  );
+  if (typeof folder?.path !== "string" || typeof folder.name !== "string") {
+    return undefined;
+  }
+
+  return {
+    path: path.resolve(workspaceDirectory, folder.path),
+    name: folder.name.slice(0, -focusedSuffix.length),
+  };
+}
+
+export function focusedWorktreeName(name: string): string {
+  return `${name}${focusedSuffix}`;
 }
 
 function normalizeWorkspacePath(workspacePath: string): string {
