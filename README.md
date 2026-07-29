@@ -1,10 +1,22 @@
-# VS Code Orchardist
+<div align="center">
+  <img alt="Orchardist preview" src="./assets/screenshot.png" />
 
-Sync VS Code workspace with Git worktrees.
+  <h1>Orchardist</h1>
+
+  <h3>Sync VS Code workspace with Git worktrees</h3>
+</div>
 
 It watches for Git worktrees in a project and automatically generates a VS Code workspace that includes all of them.
 
 It allows you to work in a single VS Code window with multiple worktrees, without having to open multiple windows or manually manage workspaces.
+
+## Features
+
+### Focusing Worktree
+
+Run **Orchardist: Focus Worktree** (`orchardist.focusWorktree`) to select one of the repository's active worktrees and hide the others.
+
+To unfocus the worktree and show all worktrees again, run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`).
 
 ## Installation
 

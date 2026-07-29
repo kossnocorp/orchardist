@@ -27,6 +27,8 @@ echo -e "\n🌀 Copying assets..."
 if ! output=$(rsync -av \
 	--include='package.json' \
 	--include='*.md' \
+	--include='assets/' \
+	--include='assets/*.png' \
 	--exclude='*' \
 	. "$pkg_dist_dir/" 2>&1); then
 
@@ -37,7 +39,6 @@ if ! output=$(rsync -av \
 fi
 
 echo "🟢 Assets copied"
-
 
 echo -e "\n🌀 Patching package.json..."
 

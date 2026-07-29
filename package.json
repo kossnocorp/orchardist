@@ -1,7 +1,7 @@
 {
   "name": "orchardist",
   "displayName": "Orchardist",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Sync VS Code workspace with Git worktrees",
   "keywords": [
     "git",
@@ -92,6 +92,7 @@
   "activationEvents": [
     "*"
   ],
+  "icon": "./assets/icon.png",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",

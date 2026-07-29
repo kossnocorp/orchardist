@@ -26,6 +26,7 @@ echo "🌀 Packaging vsix..."
 vsce_path="$(pwd)/$(pnpm --reporter=silent -c exec which vsce)"
 cd $pkg_dist_dir
 if ! output=$($vsce_path pack \
+	--allow-star-activation \
 	--no-dependencies \
 	--out $vsix_path \
 	2>&1); then
