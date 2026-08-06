@@ -3,8 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import {
   addGitignoreEntry,
-  focusedWorkspaceFolders,
-  focusedWorktreeName,
+  parseWorkspaceFolders,
   resolveWorkspaceFileName,
   workspaceFileContent,
 } from "./bootstrap.ts";
@@ -13,7 +12,12 @@ import {
   type GitRepositorySnapshot,
   type GitWorktree,
 } from "./git.ts";
-import { planWorkspaceFolders, workspaceFoldersEqual } from "./reconcile.ts";
+import {
+  inferFocusedUris,
+  planFocusedWorkspaceFolders,
+  planWorkspaceFolders,
+  workspaceFoldersEqual,
+} from "./reconcile.ts";
 
 const configurationSection = "orchardist";
 const focusSingleCommand = "orchardist.focusWorktree";
@@ -103,8 +107,11 @@ export async function activate(
   if (!mainFolder) return;
 
   let timer: NodeJS.Timeout | undefined;
-  let focusedPaths = await readFocusedPaths(workspaceUri);
-  let expectedWorkspaceFocus: readonly string[] | undefined;
+  let focusedPaths = inferFocusedPaths(
+    vscode.workspace.workspaceFolders ?? [],
+    [snapshot.main, ...snapshot.linked],
+  );
+  let expectedWorkspaceUris: readonly string[] | undefined;
   const status = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
   );
@@ -150,6 +157,9 @@ export async function activate(
       uri: vscode.Uri.file(worktree.path),
       name: path.basename(worktree.path),
     }));
+    const availableUris = worktrees.map((worktree) =>
+      vscode.Uri.file(worktree.path).toString(),
+    );
     const previouslyManaged =
       context.workspaceState.get<readonly string[]>(managedWorktreesKey) ?? [];
     await context.workspaceState.update(
@@ -158,13 +168,17 @@ export async function activate(
     );
 
     if (focused.length > 0) {
-      replaceWorkspaceFolders(
+      reconcileFocusedWorkspaceFolders(
+        availableUris,
+        previouslyManaged,
         focused.map((worktree) => ({
           uri: vscode.Uri.file(worktree.path),
-          name: focusedWorktreeName(path.basename(worktree.path)),
+          name: path.basename(worktree.path),
         })),
         () => {
-          expectedWorkspaceFocus = focused.map((worktree) => worktree.path);
+          expectedWorkspaceUris = focused.map((worktree) =>
+            vscode.Uri.file(worktree.path).toString(),
+          );
         },
       );
     } else {
@@ -174,7 +188,7 @@ export async function activate(
         previouslyManaged,
         desired,
         () => {
-          expectedWorkspaceFocus = [];
+          expectedWorkspaceUris = availableUris;
         },
       );
     }
@@ -215,17 +229,22 @@ export async function activate(
     ),
   );
   const syncWorkspaceFocus = async (): Promise<void> => {
-    const nextFocus = await readFocusedPaths(workspaceUri);
+    const current = await discoverGitRepository(gitPath, mainFolder.uri.fsPath);
+    const worktrees = [current.main, ...current.linked];
+    const workspacePaths = await readWorkspacePaths(workspaceUri);
+    const workspaceUris = workspacePaths.map((workspacePath) =>
+      vscode.Uri.file(workspacePath).toString(),
+    );
     if (
-      expectedWorkspaceFocus !== undefined &&
-      focusedPathsEqual(expectedWorkspaceFocus, nextFocus)
+      expectedWorkspaceUris !== undefined &&
+      uriSetsEqual(expectedWorkspaceUris, workspaceUris)
     ) {
-      expectedWorkspaceFocus = undefined;
+      expectedWorkspaceUris = undefined;
       return;
     }
 
-    expectedWorkspaceFocus = undefined;
-    focusedPaths = nextFocus;
+    expectedWorkspaceUris = undefined;
+    focusedPaths = inferFocusedPathsFromPaths(workspacePaths, worktrees);
     await syncWithErrors();
   };
   workspaceWatcher.onDidCreate(() => void syncWorkspaceFocus());
@@ -267,7 +286,10 @@ export async function activate(
         );
         if (!selected || selected.length === 0) return;
 
-        focusedPaths = selected.map((worktree) => worktree.path);
+        focusedPaths =
+          selected.length === current.linked.length + 1
+            ? []
+            : selected.map((worktree) => worktree.path);
         await syncWithErrors();
       } catch (error) {
         await showGitError(error);
@@ -529,38 +551,56 @@ function reconcileWorkspaceFolders(
   }
 }
 
-function replaceWorkspaceFolders(
+function reconcileFocusedWorkspaceFolders(
+  availableUris: readonly string[],
+  previouslyManagedUris: readonly string[],
   desired: readonly { uri: vscode.Uri; name: string }[],
   beforeUpdate: () => void,
 ): void {
   const current = vscode.workspace.workspaceFolders ?? [];
+  const next = planFocusedWorkspaceFolders(
+    current.map((folder) => ({
+      uri: folder.uri.toString(),
+      name: folder.name,
+    })),
+    availableUris,
+    previouslyManagedUris,
+    desired.map((folder) => ({
+      uri: folder.uri.toString(),
+      name: folder.name,
+    })),
+  );
   if (
     workspaceFoldersEqual(
       current.map((folder) => ({
         uri: folder.uri.toString(),
         name: folder.name,
       })),
-      desired.map((folder) => ({
-        uri: folder.uri.toString(),
-        name: folder.name,
-      })),
+      next,
     )
   ) {
     return;
   }
 
   beforeUpdate();
-  vscode.workspace.updateWorkspaceFolders(0, current.length, ...desired);
+  vscode.workspace.updateWorkspaceFolders(
+    0,
+    current.length,
+    ...next.map((folder) => ({
+      uri: vscode.Uri.parse(folder.uri),
+      name: folder.name,
+    })),
+  );
 }
 
-async function readFocusedPaths(
+async function readWorkspacePaths(
   workspaceUri: vscode.Uri,
 ): Promise<readonly string[]> {
   try {
     const content = new TextDecoder().decode(
       await vscode.workspace.fs.readFile(workspaceUri),
     );
-    return focusedWorkspaceFolders(
+    return parseWorkspaceFolders(
       content,
       path.dirname(workspaceUri.fsPath),
     ).map((folder) => folder.path);
@@ -620,7 +660,7 @@ function updateStatus(
     status.command = worktreeActionsCommand;
   } else if (focused.length > 1) {
     const names = focused.map((worktree) => path.basename(worktree.path));
-    status.text = `$(git-commit) Worktrees: ${focused.length}`;
+    status.text = `$(git-commit) Focused worktrees: ${focused.length}`;
     status.tooltip = `Orchardist is focused on ${names.join(", ")}`;
     status.command = worktreeActionsCommand;
   } else {
@@ -631,13 +671,42 @@ function updateStatus(
   status.show();
 }
 
-function focusedPathsEqual(
+function inferFocusedPaths(
+  folders: readonly vscode.WorkspaceFolder[],
+  worktrees: readonly GitWorktree[],
+): readonly string[] {
+  return inferFocusedPathsFromPaths(
+    folders.map((folder) => folder.uri.fsPath),
+    worktrees,
+  );
+}
+
+function inferFocusedPathsFromPaths(
+  folderPaths: readonly string[],
+  worktrees: readonly GitWorktree[],
+): readonly string[] {
+  const pathByUri = new Map(
+    worktrees.map((worktree) => [
+      vscode.Uri.file(worktree.path).toString(),
+      worktree.path,
+    ]),
+  );
+  return inferFocusedUris(
+    folderPaths.map((folderPath) => vscode.Uri.file(folderPath).toString()),
+    [...pathByUri.keys()],
+  ).flatMap((uri) => {
+    const workspacePath = pathByUri.get(uri);
+    return workspacePath ? [workspacePath] : [];
+  });
+}
+
+function uriSetsEqual(
   left: readonly string[],
   right: readonly string[],
 ): boolean {
+  const rightSet = new Set(right);
   return (
-    left.length === right.length &&
-    left.every((leftPath, index) => pathsEqual(leftPath, right[index]))
+    left.length === rightSet.size && left.every((uri) => rightSet.has(uri))
   );
 }
 

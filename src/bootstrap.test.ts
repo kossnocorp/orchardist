@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addGitignoreEntry,
-  focusedWorkspaceFolders,
-  focusedWorktreeName,
+  parseWorkspaceFolders,
   resolveWorkspaceFileName,
   workspaceFileContent,
 } from "./bootstrap.ts";
@@ -43,47 +42,41 @@ describe("workspaceFileContent", () => {
   });
 });
 
-describe("focusedWorkspaceFolders", () => {
-  it("reads a focused worktree from a JSONC workspace", () => {
+describe("parseWorkspaceFolders", () => {
+  it("reads workspace folders from JSONC", () => {
     expect(
-      focusedWorkspaceFolders(
+      parseWorkspaceFolders(
         `{
-          // Focus is persisted in the folder name.
-          "folders": [{ "path": "../feature", "name": "feature (focused)" }]
+          // Folder names do not determine focus.
+          "folders": [{ "path": "../feature", "name": "feature" }]
         }`,
         "/repo/main",
       ),
     ).toEqual([{ path: "/repo/feature", name: "feature" }]);
   });
 
-  it("reads multiple focused worktrees", () => {
+  it("reads multiple folders and preserves legacy names", () => {
     expect(
-      focusedWorkspaceFolders(
+      parseWorkspaceFolders(
         `{ "folders": [
           { "path": "../alpha", "name": "alpha (focused)" },
-          { "path": "../beta", "name": "beta (focused)" }
+          { "path": "../beta" }
         ] }`,
         "/repo/main",
       ),
     ).toEqual([
-      { path: "/repo/alpha", name: "alpha" },
-      { path: "/repo/beta", name: "beta" },
+      { path: "/repo/alpha", name: "alpha (focused)" },
+      { path: "/repo/beta", name: undefined },
     ]);
   });
 
-  it("ignores ordinary workspace folders", () => {
+  it("ignores malformed workspace folders", () => {
     expect(
-      focusedWorkspaceFolders(
-        `{ "folders": [{ "path": ".", "name": "main" }] }`,
+      parseWorkspaceFolders(
+        `{ "folders": [{ "name": "missing-path" }, { "path": 42 }] }`,
         "/repo/main",
       ),
     ).toEqual([]);
-  });
-});
-
-describe("focusedWorktreeName", () => {
-  it("adds the persisted focus marker", () => {
-    expect(focusedWorktreeName("feature")).toBe("feature (focused)");
   });
 });
 

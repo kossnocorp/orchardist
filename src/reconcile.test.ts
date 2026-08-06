@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { planWorkspaceFolders, workspaceFoldersEqual } from "./reconcile.ts";
+import {
+  inferFocusedUris,
+  planFocusedWorkspaceFolders,
+  planWorkspaceFolders,
+  workspaceFoldersEqual,
+} from "./reconcile.ts";
 
 describe("planWorkspaceFolders", () => {
   it("renames the main folder and adds desired directories in order", () => {
@@ -117,5 +122,63 @@ describe("workspaceFoldersEqual", () => {
         { uri: "file:///repo", name: "renamed" },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("inferFocusedUris", () => {
+  const available = ["file:///repo", "file:///alpha", "file:///beta"];
+
+  it("infers single and multiple focus from proper subsets", () => {
+    expect(inferFocusedUris(["file:///alpha"], available)).toEqual([
+      "file:///alpha",
+    ]);
+    expect(
+      inferFocusedUris(["file:///repo", "file:///beta"], available),
+    ).toEqual(["file:///repo", "file:///beta"]);
+  });
+
+  it("treats all, none, and one out of one as unfocused", () => {
+    expect(inferFocusedUris(available, available)).toEqual([]);
+    expect(inferFocusedUris([], available)).toEqual([]);
+    expect(inferFocusedUris(["file:///repo"], ["file:///repo"])).toEqual([]);
+  });
+
+  it("ignores unrelated folders", () => {
+    expect(
+      inferFocusedUris(["file:///alpha", "file:///shared"], available),
+    ).toEqual(["file:///alpha"]);
+  });
+});
+
+describe("planFocusedWorkspaceFolders", () => {
+  it("preserves unrelated folders and canonicalizes legacy managed names", () => {
+    expect(
+      planFocusedWorkspaceFolders(
+        [
+          { uri: "file:///alpha", name: "alpha (focused)" },
+          { uri: "file:///shared", name: "shared (focused)" },
+        ],
+        ["file:///repo", "file:///alpha", "file:///beta"],
+        ["file:///alpha", "file:///beta"],
+        [{ uri: "file:///alpha", name: "alpha" }],
+      ),
+    ).toEqual([
+      { uri: "file:///alpha", name: "alpha" },
+      { uri: "file:///shared", name: "shared (focused)" },
+    ]);
+  });
+
+  it("removes stale previously managed worktrees", () => {
+    expect(
+      planFocusedWorkspaceFolders(
+        [
+          { uri: "file:///alpha", name: "alpha" },
+          { uri: "file:///deleted", name: "deleted" },
+        ],
+        ["file:///repo", "file:///alpha"],
+        ["file:///alpha", "file:///deleted"],
+        [{ uri: "file:///alpha", name: "alpha" }],
+      ),
+    ).toEqual([{ uri: "file:///alpha", name: "alpha" }]);
   });
 });
