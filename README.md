@@ -18,6 +18,10 @@ Run **Orchardist: Focus Worktree** (`orchardist.focusWorktree`) to select one of
 
 To unfocus the worktree and show all worktrees again, run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`).
 
+### Opening Worktrees
+
+Run **Orchardist: Open Worktree in New Window** (`orchardist.openWorktreeInNewWindow`) to select an active worktree and open it in a new window.
+
 ## Installation
 
 - For Visual Studio Code, [install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=nocorp.orchardist).

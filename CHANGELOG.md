@@ -8,6 +8,12 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v0.4.0 - 2026-08-??
+
+### Added
+
+- Added the Open Worktree in New Window command (`orchardist.openWorktreeInNewWindow`).
+
 ## v0.3.0 - 2026-07-29
 
 ### Added

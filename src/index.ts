@@ -18,6 +18,7 @@ import { planWorkspaceFolders, workspaceFoldersEqual } from "./reconcile.ts";
 const configurationSection = "orchardist";
 const focusCommand = "orchardist.focusWorktree";
 const unfocusCommand = "orchardist.unfocusWorktree";
+const openWorktreeInNewWindowCommand = "orchardist.openWorktreeInNewWindow";
 const worktreeActionsCommand = "orchardist.showWorktreeActions";
 const managedWorkspaceContext = "orchardist.managedWorkspace";
 const focusedWorktreeContext = "orchardist.focusedWorktree";
@@ -62,6 +63,8 @@ export async function activate(
   const workspaceUri = vscode.Uri.joinPath(mainUri, workspaceFileName);
 
   if (!isCurrentWorkspace(workspaceUri)) {
+    if (!pathsEqual(openedFolder.uri.fsPath, snapshot.main.path)) return;
+
     if (await fileExists(workspaceUri)) {
       const choice = await vscode.window.showInformationMessage(
         "Orchardist found an existing worktree workspace. Do you want to open it?",
@@ -245,6 +248,31 @@ export async function activate(
       focusedPath = undefined;
       await syncWithErrors();
     }),
+    vscode.commands.registerCommand(
+      openWorktreeInNewWindowCommand,
+      async () => {
+        try {
+          const current = await discoverGitRepository(
+            gitPath,
+            mainFolder.uri.fsPath,
+          );
+          const selected = await selectWorktree(
+            [current.main, ...current.linked],
+            "Open Worktree in New Window",
+            "Select a worktree to open in a new window",
+          );
+          if (!selected) return;
+
+          await vscode.commands.executeCommand(
+            "vscode.openFolder",
+            vscode.Uri.file(selected.path),
+            true,
+          );
+        } catch (error) {
+          await showGitError(error);
+        }
+      },
+    ),
     vscode.commands.registerCommand(worktreeActionsCommand, async () => {
       const selected = await vscode.window.showQuickPick(
         [
@@ -504,6 +532,8 @@ async function readFocusedPath(
 
 async function selectWorktree(
   worktrees: readonly GitWorktree[],
+  title = "Focus Worktree",
+  placeHolder = "Select a worktree to focus",
 ): Promise<GitWorktree | undefined> {
   const items = worktrees.map((worktree) => ({
     label: path.basename(worktree.path),
@@ -511,8 +541,8 @@ async function selectWorktree(
     worktree,
   }));
   const selected = await vscode.window.showQuickPick(items, {
-    placeHolder: "Select a worktree to focus",
-    title: "Focus Worktree",
+    placeHolder,
+    title,
   });
   return selected?.worktree;
 }

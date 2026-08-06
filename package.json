@@ -39,6 +39,11 @@
         "command": "orchardist.unfocusWorktree",
         "title": "Unfocus Worktree",
         "category": "Orchardist"
+      },
+      {
+        "command": "orchardist.openWorktreeInNewWindow",
+        "title": "Open Worktree in New Window",
+        "category": "Orchardist"
       }
     ],
     "menus": {
@@ -50,6 +55,10 @@
         {
           "command": "orchardist.unfocusWorktree",
           "when": "orchardist.managedWorkspace && orchardist.focusedWorktree"
+        },
+        {
+          "command": "orchardist.openWorktreeInNewWindow",
+          "when": "orchardist.managedWorkspace"
         }
       ]
     },
