@@ -13,6 +13,11 @@ This change log follows the format documented in [Keep a CHANGELOG].
 ### Added
 
 - Added the Open Worktree in New Window command (`orchardist.openWorktreeInNewWindow`).
+- Added the Focus Multiple Worktrees command (`orchardist.focusMultipleWorktrees`) with a checkbox selection menu.
+
+### Changed
+
+- Renamed the Focus Worktree command to Focus Single Worktree and added focus-mode actions to the status bar menu.
 
 ## v0.3.0 - 2026-07-29
 

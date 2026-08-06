@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import {
   addGitignoreEntry,
-  focusedWorkspaceFolder,
+  focusedWorkspaceFolders,
   focusedWorktreeName,
   resolveWorkspaceFileName,
   workspaceFileContent,
@@ -16,12 +16,14 @@ import {
 import { planWorkspaceFolders, workspaceFoldersEqual } from "./reconcile.ts";
 
 const configurationSection = "orchardist";
-const focusCommand = "orchardist.focusWorktree";
+const focusSingleCommand = "orchardist.focusWorktree";
+const focusMultipleCommand = "orchardist.focusMultipleWorktrees";
 const unfocusCommand = "orchardist.unfocusWorktree";
 const openWorktreeInNewWindowCommand = "orchardist.openWorktreeInNewWindow";
 const worktreeActionsCommand = "orchardist.showWorktreeActions";
 const managedWorkspaceContext = "orchardist.managedWorkspace";
 const focusedWorktreeContext = "orchardist.focusedWorktree";
+const focusModeContext = "orchardist.focusMode";
 const managedWorktreesKey = "managedWorktrees";
 const bootstrapAction = "Bootstrap Workspace";
 const openWorkspaceAction = "Open Workspace";
@@ -101,8 +103,8 @@ export async function activate(
   if (!mainFolder) return;
 
   let timer: NodeJS.Timeout | undefined;
-  let focusedPath = await readFocusedPath(workspaceUri);
-  let expectedWorkspaceFocus: string | null | undefined;
+  let focusedPaths = await readFocusedPaths(workspaceUri);
+  let expectedWorkspaceFocus: readonly string[] | undefined;
   const status = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
   );
@@ -123,14 +125,25 @@ export async function activate(
     const current = await discoverGitRepository(gitPath, mainFolder.uri.fsPath);
     const mainName = currentConfiguration.get("mainName", "main");
     const worktrees = [current.main, ...current.linked];
-    const focused = worktrees.find((worktree) =>
-      pathsEqual(worktree.path, focusedPath),
+    const focused = worktrees.filter((worktree) =>
+      focusedPaths.some((focusedPath) =>
+        pathsEqual(worktree.path, focusedPath),
+      ),
     );
-    if (!focused) focusedPath = undefined;
+    focusedPaths = focused.map((worktree) => worktree.path);
     await vscode.commands.executeCommand(
       "setContext",
       focusedWorktreeContext,
-      focused !== undefined,
+      focused.length > 0,
+    );
+    await vscode.commands.executeCommand(
+      "setContext",
+      focusModeContext,
+      focused.length > 1
+        ? "multiple"
+        : focused.length === 1
+          ? "single"
+          : undefined,
     );
 
     const desired = current.linked.map((worktree) => ({
@@ -144,16 +157,14 @@ export async function activate(
       desired.map((folder) => folder.uri.toString()),
     );
 
-    if (focused) {
+    if (focused.length > 0) {
       replaceWorkspaceFolders(
-        [
-          {
-            uri: vscode.Uri.file(focused.path),
-            name: focusedWorktreeName(path.basename(focused.path)),
-          },
-        ],
+        focused.map((worktree) => ({
+          uri: vscode.Uri.file(worktree.path),
+          name: focusedWorktreeName(path.basename(worktree.path)),
+        })),
         () => {
-          expectedWorkspaceFocus = focused.path;
+          expectedWorkspaceFocus = focused.map((worktree) => worktree.path);
         },
       );
     } else {
@@ -163,7 +174,7 @@ export async function activate(
         previouslyManaged,
         desired,
         () => {
-          expectedWorkspaceFocus = null;
+          expectedWorkspaceFocus = [];
         },
       );
     }
@@ -204,17 +215,17 @@ export async function activate(
     ),
   );
   const syncWorkspaceFocus = async (): Promise<void> => {
-    const nextFocus = (await readFocusedPath(workspaceUri)) ?? null;
+    const nextFocus = await readFocusedPaths(workspaceUri);
     if (
       expectedWorkspaceFocus !== undefined &&
-      pathsEqual(expectedWorkspaceFocus, nextFocus)
+      focusedPathsEqual(expectedWorkspaceFocus, nextFocus)
     ) {
       expectedWorkspaceFocus = undefined;
       return;
     }
 
     expectedWorkspaceFocus = undefined;
-    focusedPath = nextFocus ?? undefined;
+    focusedPaths = nextFocus;
     await syncWithErrors();
   };
   workspaceWatcher.onDidCreate(() => void syncWorkspaceFocus());
@@ -226,7 +237,7 @@ export async function activate(
     nativeWatcher,
     workspaceWatcher,
     status,
-    vscode.commands.registerCommand(focusCommand, async () => {
+    vscode.commands.registerCommand(focusSingleCommand, async () => {
       try {
         const current = await discoverGitRepository(
           gitPath,
@@ -238,14 +249,32 @@ export async function activate(
         ]);
         if (!selected) return;
 
-        focusedPath = selected.path;
+        focusedPaths = [selected.path];
+        await syncWithErrors();
+      } catch (error) {
+        await showGitError(error);
+      }
+    }),
+    vscode.commands.registerCommand(focusMultipleCommand, async () => {
+      try {
+        const current = await discoverGitRepository(
+          gitPath,
+          mainFolder.uri.fsPath,
+        );
+        const selected = await selectWorktrees(
+          [current.main, ...current.linked],
+          focusedPaths,
+        );
+        if (!selected || selected.length === 0) return;
+
+        focusedPaths = selected.map((worktree) => worktree.path);
         await syncWithErrors();
       } catch (error) {
         await showGitError(error);
       }
     }),
     vscode.commands.registerCommand(unfocusCommand, async () => {
-      focusedPath = undefined;
+      focusedPaths = [];
       await syncWithErrors();
     }),
     vscode.commands.registerCommand(
@@ -274,11 +303,20 @@ export async function activate(
       },
     ),
     vscode.commands.registerCommand(worktreeActionsCommand, async () => {
+      const multiple = focusedPaths.length > 1;
       const selected = await vscode.window.showQuickPick(
         [
           {
-            label: "$(target) Change Focus",
-            command: focusCommand,
+            label: multiple
+              ? "$(target) Change Focused Worktrees"
+              : "$(target) Change Focused Worktree",
+            command: multiple ? focusMultipleCommand : focusSingleCommand,
+          },
+          {
+            label: multiple
+              ? "$(list-selection) Focus Single Worktree"
+              : "$(list-selection) Focus Multiple Worktrees",
+            command: multiple ? focusSingleCommand : focusMultipleCommand,
           },
           {
             label: "$(close) Unfocus",
@@ -287,7 +325,7 @@ export async function activate(
         ],
         {
           placeHolder: "Choose a worktree action",
-          title: "Focused Worktree",
+          title: multiple ? "Focused Worktrees" : "Focused Worktree",
         },
       );
       if (selected) await vscode.commands.executeCommand(selected.command);
@@ -515,19 +553,41 @@ function replaceWorkspaceFolders(
   vscode.workspace.updateWorkspaceFolders(0, current.length, ...desired);
 }
 
-async function readFocusedPath(
+async function readFocusedPaths(
   workspaceUri: vscode.Uri,
-): Promise<string | undefined> {
+): Promise<readonly string[]> {
   try {
     const content = new TextDecoder().decode(
       await vscode.workspace.fs.readFile(workspaceUri),
     );
-    return focusedWorkspaceFolder(content, path.dirname(workspaceUri.fsPath))
-      ?.path;
+    return focusedWorkspaceFolders(
+      content,
+      path.dirname(workspaceUri.fsPath),
+    ).map((folder) => folder.path);
   } catch (error) {
-    if (isFileNotFound(error)) return undefined;
+    if (isFileNotFound(error)) return [];
     throw error;
   }
+}
+
+async function selectWorktrees(
+  worktrees: readonly GitWorktree[],
+  focusedPaths: readonly string[],
+): Promise<readonly GitWorktree[] | undefined> {
+  const items = worktrees.map((worktree) => ({
+    label: path.basename(worktree.path),
+    description: worktree.path,
+    picked: focusedPaths.some((focusedPath) =>
+      pathsEqual(worktree.path, focusedPath),
+    ),
+    worktree,
+  }));
+  const selected = await vscode.window.showQuickPick(items, {
+    canPickMany: true,
+    placeHolder: "Select worktrees to focus",
+    title: "Focus Multiple Worktrees",
+  });
+  return selected?.map((item) => item.worktree);
 }
 
 async function selectWorktree(
@@ -549,20 +609,36 @@ async function selectWorktree(
 
 function updateStatus(
   status: vscode.StatusBarItem,
-  focused: GitWorktree | undefined,
+  focused: readonly GitWorktree[],
   worktreeCount: number,
 ): void {
-  if (focused) {
-    const name = path.basename(focused.path);
+  const first = focused[0];
+  if (focused.length === 1 && first) {
+    const name = path.basename(first.path);
     status.text = `$(git-commit) Worktree: ${name}`;
     status.tooltip = `Orchardist is focused on ${name}`;
+    status.command = worktreeActionsCommand;
+  } else if (focused.length > 1) {
+    const names = focused.map((worktree) => path.basename(worktree.path));
+    status.text = `$(git-commit) Worktrees: ${focused.length}`;
+    status.tooltip = `Orchardist is focused on ${names.join(", ")}`;
     status.command = worktreeActionsCommand;
   } else {
     status.text = `$(git-branch) Worktrees: ${worktreeCount}`;
     status.tooltip = `${worktreeCount} Git worktrees`;
-    status.command = focusCommand;
+    status.command = focusSingleCommand;
   }
   status.show();
+}
+
+function focusedPathsEqual(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((leftPath, index) => pathsEqual(leftPath, right[index]))
+  );
 }
 
 function pathsEqual(

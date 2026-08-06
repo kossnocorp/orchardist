@@ -83,6 +83,28 @@ describe("planWorkspaceFolders", () => {
       { uri: "file:///repo/trees/beta", name: "beta" },
     ]);
   });
+
+  it("restores all worktrees after focusing multiple worktrees", () => {
+    expect(
+      planWorkspaceFolders(
+        [
+          { uri: "file:///repo/trees/alpha", name: "alpha (focused)" },
+          { uri: "file:///repo/trees/beta", name: "beta (focused)" },
+        ],
+        "file:///repo",
+        "main",
+        ["file:///repo/trees/alpha", "file:///repo/trees/beta"],
+        [
+          { uri: "file:///repo/trees/alpha", name: "alpha" },
+          { uri: "file:///repo/trees/beta", name: "beta" },
+        ],
+      ),
+    ).toEqual([
+      { uri: "file:///repo", name: "main" },
+      { uri: "file:///repo/trees/alpha", name: "alpha" },
+      { uri: "file:///repo/trees/beta", name: "beta" },
+    ]);
+  });
 });
 
 describe("workspaceFoldersEqual", () => {

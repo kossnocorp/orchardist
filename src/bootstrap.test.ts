@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addGitignoreEntry,
-  focusedWorkspaceFolder,
+  focusedWorkspaceFolders,
   focusedWorktreeName,
   resolveWorkspaceFileName,
   workspaceFileContent,
@@ -43,26 +43,41 @@ describe("workspaceFileContent", () => {
   });
 });
 
-describe("focusedWorkspaceFolder", () => {
+describe("focusedWorkspaceFolders", () => {
   it("reads a focused worktree from a JSONC workspace", () => {
     expect(
-      focusedWorkspaceFolder(
+      focusedWorkspaceFolders(
         `{
           // Focus is persisted in the folder name.
           "folders": [{ "path": "../feature", "name": "feature (focused)" }]
         }`,
         "/repo/main",
       ),
-    ).toEqual({ path: "/repo/feature", name: "feature" });
+    ).toEqual([{ path: "/repo/feature", name: "feature" }]);
+  });
+
+  it("reads multiple focused worktrees", () => {
+    expect(
+      focusedWorkspaceFolders(
+        `{ "folders": [
+          { "path": "../alpha", "name": "alpha (focused)" },
+          { "path": "../beta", "name": "beta (focused)" }
+        ] }`,
+        "/repo/main",
+      ),
+    ).toEqual([
+      { path: "/repo/alpha", name: "alpha" },
+      { path: "/repo/beta", name: "beta" },
+    ]);
   });
 
   it("ignores ordinary workspace folders", () => {
     expect(
-      focusedWorkspaceFolder(
+      focusedWorkspaceFolders(
         `{ "folders": [{ "path": ".", "name": "main" }] }`,
         "/repo/main",
       ),
-    ).toBeUndefined();
+    ).toEqual([]);
   });
 });
 

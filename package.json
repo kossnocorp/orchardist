@@ -32,7 +32,12 @@
     "commands": [
       {
         "command": "orchardist.focusWorktree",
-        "title": "Focus Worktree",
+        "title": "Focus Single Worktree",
+        "category": "Orchardist"
+      },
+      {
+        "command": "orchardist.focusMultipleWorktrees",
+        "title": "Focus Multiple Worktrees",
         "category": "Orchardist"
       },
       {
@@ -50,7 +55,11 @@
       "commandPalette": [
         {
           "command": "orchardist.focusWorktree",
-          "when": "orchardist.managedWorkspace && !orchardist.focusedWorktree"
+          "when": "orchardist.managedWorkspace"
+        },
+        {
+          "command": "orchardist.focusMultipleWorktrees",
+          "when": "orchardist.managedWorkspace"
         },
         {
           "command": "orchardist.unfocusWorktree",

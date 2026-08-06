@@ -14,9 +14,11 @@ It allows you to work in a single VS Code window with multiple worktrees, withou
 
 ### Focusing Worktree
 
-Run **Orchardist: Focus Worktree** (`orchardist.focusWorktree`) to select one of the repository's active worktrees and hide the others.
+Run **Orchardist: Focus Single Worktree** (`orchardist.focusWorktree`) to select one of the repository's active worktrees and hide the others.
 
-To unfocus the worktree and show all worktrees again, run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`).
+Run **Orchardist: Focus Multiple Worktrees** (`orchardist.focusMultipleWorktrees`) to select several active worktrees using a checkbox menu and hide the others.
+
+Use the status bar menu to change the focused worktree or worktrees, switch between single and multiple focus, or run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`) to show all worktrees again.
 
 ### Opening Worktrees
 
