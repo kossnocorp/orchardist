@@ -296,15 +296,18 @@ and __orchardist_on_pwd
 Add both variables to your Starship prompt by including the modules in `format` and configuring them in `~/.config/starship.toml`:
 
 ```toml
-format = "$env_var.ORCHARDIST_WORKTREE_SYMBOL$env_var.ORCHARDIST_WORKTREE_NAME$all"
+format = """
+$all\
+${custom.worktree}\
+$netns\
+$shell\
+$character"""
 
-[env_var.ORCHARDIST_WORKTREE_SYMBOL]
-format = "[$env_value ]($style)"
-style = "bold"
-
-[env_var.ORCHARDIST_WORKTREE_NAME]
-format = "[$env_value ]($style)"
-style = "bold cyan"
+[custom.worktree]
+shell = ["sh"]
+when = ''' test -n "$ORCHARDIST_WORKTREE_NAME" '''
+command = ''' printf '%s %s' "${ORCHARDIST_WORKTREE_SYMBOL}" "$ORCHARDIST_WORKTREE_NAME" '''
+format = "[$output](fg:cyan) "
 ```
 
 ## Changelog

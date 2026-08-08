@@ -8,6 +8,12 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v0.5.1 - 2026-08-08
+
+### Fixed
+
+- Fixed Starship integration instructions.
+
 ## v0.5.0 - 2026-08-08
 
 ### Added
