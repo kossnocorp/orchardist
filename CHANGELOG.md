@@ -8,6 +8,24 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v0.5.0 - 2026-08-08
+
+### Added
+
+- Added opt-in worktree discriminators feature (enable via `orchardist.discriminators`) that assigns a stable symbol to each worktree and makes VS Code show these symbols in file labels, editor and terminal tabs, and workspace dir names
+
+- Added a managed terminal tab title based on the workspace folder.
+
+- Added Bash, Zsh, and Fish integrations that expose the current worktree details through `ORCHARDIST_WORKTREE_NAME` and `ORCHARDIST_WORKTREE_SYMBOL` for shell prompts.
+
+- Added **Orchardist: New Terminal** to create worktree terminals with tab color uniquely assigned to each worktree.
+
+### Changed
+
+- Made linked worktrees sort by name and omit the main directory prefix from names such as `project.feature`.
+
+- Made worktree names use normalized short names and show assigned symbols when discriminators are enabled consistently across the Orchardist UI.
+
 ## v0.4.0 - 2026-08-06
 
 ### Added
