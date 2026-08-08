@@ -28,8 +28,8 @@ describe("workspaceFileContent", () => {
     expect(
       JSON.parse(
         workspaceFileContent("/repo", "main", [
-          "/repo/trees/alpha",
-          "/external/beta",
+          { path: "/repo/trees/alpha" },
+          { path: "/external/beta" },
         ]),
       ),
     ).toEqual({
@@ -38,6 +38,36 @@ describe("workspaceFileContent", () => {
         { path: "trees/alpha", name: "alpha" },
         { path: "../external/beta", name: "beta" },
       ],
+    });
+  });
+
+  it("persists terminal assignments without visual discriminators", () => {
+    expect(
+      JSON.parse(
+        workspaceFileContent(
+          "/repo",
+          "main",
+          [{ path: "/repo/feature", name: "feature" }],
+          {
+            discriminators: [
+              { path: "/repo", name: "main", symbol: "green" },
+              { path: "/repo/feature", name: "feature", symbol: "blue" },
+            ],
+            history: ["main", "feature"],
+          },
+          false,
+        ),
+      ),
+    ).toEqual({
+      folders: [
+        { path: ".", name: "main" },
+        { path: "feature", name: "feature" },
+      ],
+      settings: {
+        "orchardist.discriminatorHistory": ["main", "feature"],
+        "terminal.integrated.tabs.title":
+          "${workspaceFolderName} ${separator} ${process}",
+      },
     });
   });
 });

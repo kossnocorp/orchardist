@@ -29,6 +29,8 @@ if ! output=$(rsync -av \
 	--include='*.md' \
 	--include='assets/' \
 	--include='assets/*.png' \
+	--include='shell/' \
+	--include='shell/*' \
 	--exclude='*' \
 	. "$pkg_dist_dir/" 2>&1); then
 

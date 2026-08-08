@@ -1,5 +1,9 @@
 import * as path from "node:path";
 import { parse } from "jsonc-parser";
+import {
+  type Discriminator,
+  updateDiscriminatorSettings,
+} from "./discriminators.ts";
 
 const workspaceFolderBasenameVariable = "${workspaceFolderBasename}";
 export interface ParsedWorkspaceFolder {
@@ -20,19 +24,41 @@ export function resolveWorkspaceFileName(
 export function workspaceFileContent(
   mainPath: string,
   mainName: string,
-  linkedPaths: readonly string[],
+  linked: readonly { readonly path: string; readonly name?: string }[],
+  discriminatorPlan?: {
+    readonly discriminators: readonly Discriminator[];
+    readonly history: readonly (string | null)[];
+  },
+  visualsEnabled = false,
 ): string {
   const workspace = {
     folders: [
-      { path: ".", name: mainName },
-      ...linkedPaths.map((worktreePath) => ({
-        path: normalizeWorkspacePath(path.relative(mainPath, worktreePath)),
-        name: path.basename(worktreePath),
+      {
+        path: ".",
+        name:
+          visualsEnabled && discriminatorPlan
+            ? `${discriminatorPlan.discriminators[0]?.symbol} ${mainName}`
+            : mainName,
+      },
+      ...linked.map((worktree, index) => ({
+        path: normalizeWorkspacePath(path.relative(mainPath, worktree.path)),
+        name:
+          visualsEnabled && discriminatorPlan
+            ? `${discriminatorPlan.discriminators[index + 1]?.symbol} ${worktree.name ?? path.basename(worktree.path)}`
+            : (worktree.name ?? path.basename(worktree.path)),
       })),
     ],
   };
 
-  return `${JSON.stringify(workspace, undefined, 2)}\n`;
+  const content = `${JSON.stringify(workspace, undefined, 2)}\n`;
+  return discriminatorPlan
+    ? updateDiscriminatorSettings(
+        content,
+        discriminatorPlan.discriminators,
+        discriminatorPlan.history,
+        visualsEnabled,
+      )
+    : content;
 }
 
 export function parseWorkspaceFolders(

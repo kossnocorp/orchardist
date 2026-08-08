@@ -49,6 +49,11 @@
         "command": "orchardist.openWorktreeInNewWindow",
         "title": "Open Worktree in New Window",
         "category": "Orchardist"
+      },
+      {
+        "command": "orchardist.newTerminal",
+        "title": "New Terminal",
+        "category": "Orchardist"
       }
     ],
     "menus": {
@@ -67,6 +72,10 @@
         },
         {
           "command": "orchardist.openWorktreeInNewWindow",
+          "when": "orchardist.managedWorkspace"
+        },
+        {
+          "command": "orchardist.newTerminal",
           "when": "orchardist.managedWorkspace"
         }
       ]
@@ -103,6 +112,53 @@
           "default": true,
           "scope": "window",
           "description": "Automatically add the generated workspace file to .gitignore."
+        },
+        "orchardist.discriminators": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Show worktree symbols in workspace folder names and editor labels."
+        },
+        "orchardist.discriminatorSymbols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": [
+            "🟢",
+            "🔵",
+            "🟣",
+            "🟡",
+            "🔴",
+            "⚪️",
+            "🟠",
+            "🟤",
+            "⚫️"
+          ],
+          "scope": "window",
+          "description": "Ordered symbols used to distinguish worktrees. Symbols repeat when there are more worktrees than entries."
+        },
+        "orchardist.discriminatorHistory": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default": [],
+          "scope": "window",
+          "description": "Orchardist-managed symbol assignment history for this workspace."
+        },
+        "orchardist.discriminatorPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "description": "Orchardist-managed custom label patterns used to clean up stale worktree labels. Do not edit this setting manually."
         }
       }
     }
