@@ -15,6 +15,7 @@ export const defaultDiscriminatorSymbols = [
 
 export const discriminatorHistorySetting = "orchardist.discriminatorHistory";
 const discriminatorPatternsSetting = "orchardist.discriminatorPatterns";
+const fileExcludePatternsSetting = "orchardist.fileExcludePatterns";
 
 export interface WorktreeIdentity {
   readonly path: string;
@@ -153,6 +154,7 @@ export function updateDiscriminatorSettings(
   discriminators: readonly Discriminator[],
   history: readonly (string | null)[] = [],
   visualsEnabled = true,
+  quickOpenExcludedPaths: readonly string[] = [],
 ): string {
   const workspace = parse(content) as {
     settings?: Record<string, unknown>;
@@ -216,6 +218,36 @@ export function updateDiscriminatorSettings(
     [
       ["settings", "terminal.integrated.tabs.title"],
       "${workspaceFolderName} ${separator} ${process}",
+    ],
+  );
+
+  const previousQuickOpenPatterns = settings[fileExcludePatternsSetting];
+  const ownedQuickOpenPatterns = Array.isArray(previousQuickOpenPatterns)
+    ? previousQuickOpenPatterns.filter(
+        (pattern): pattern is string => typeof pattern === "string",
+      )
+    : [];
+  const searchExclude = settings["search.exclude"];
+  const nextSearchExclude =
+    searchExclude &&
+    typeof searchExclude === "object" &&
+    !Array.isArray(searchExclude)
+      ? { ...(searchExclude as Record<string, unknown>) }
+      : {};
+  for (const pattern of ownedQuickOpenPatterns)
+    delete nextSearchExclude[pattern];
+  const quickOpenPatterns = quickOpenExcludedPaths.map((worktreePath) =>
+    normalizePatternPath(path.join(worktreePath, "**")),
+  );
+  for (const pattern of quickOpenPatterns) nextSearchExclude[pattern] = true;
+  changes.push(
+    [
+      ["settings", fileExcludePatternsSetting],
+      quickOpenPatterns.length > 0 ? quickOpenPatterns : undefined,
+    ],
+    [
+      ["settings", "search.exclude"],
+      Object.keys(nextSearchExclude).length > 0 ? nextSearchExclude : undefined,
     ],
   );
 

@@ -262,6 +262,16 @@ export async function activate(
       focused.length > 0
         ? focused.map((worktree) => worktree.path)
         : identities.map((identity) => identity.path),
+      currentConfiguration.get("filterFiles", true) && focused.length > 0
+        ? worktrees
+            .filter(
+              (worktree) =>
+                !focused.some((focusedWorktree) =>
+                  pathsEqual(focusedWorktree.path, worktree.path),
+                ),
+            )
+            .map((worktree) => worktree.path)
+        : [],
     );
 
     updateStatus(
@@ -607,6 +617,7 @@ async function synchronizeDiscriminatorSettings(
   plan: ReturnType<typeof assignDiscriminators>,
   visualsEnabled: boolean,
   expectedPaths: readonly string[],
+  quickOpenExcludedPaths: readonly string[],
 ): Promise<void> {
   const content = await readWorkspaceContentWithPaths(
     workspaceUri,
@@ -618,6 +629,7 @@ async function synchronizeDiscriminatorSettings(
     plan.discriminators,
     plan.history,
     visualsEnabled,
+    quickOpenExcludedPaths,
   );
   if (next !== content) {
     await vscode.workspace.fs.writeFile(

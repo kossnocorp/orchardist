@@ -20,6 +20,8 @@ This change log follows the format documented in [Keep a CHANGELOG].
 
 - Added **Orchardist: New Terminal** to create worktree terminals with tab color uniquely assigned to each worktree.
 
+- Added default-enabled `orchardist.filterFiles` to hide files from unfocused worktrees in Quick Open and workspace search results using managed `search.exclude` patterns.
+
 ### Changed
 
 - Made linked worktrees sort by name and omit the main directory prefix from names such as `project.feature`.

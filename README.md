@@ -20,6 +20,10 @@ Run **Orchardist: Focus Multiple Worktrees** (`orchardist.focusMultipleWorktrees
 
 Use the status bar menu to change the focused worktree or worktrees, switch between single and multiple focus, or run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`) to show all worktrees again.
 
+By default (disable via [`orchardist.filterFiles`](#orchardistfilterfiles)) Orchardist hides files from unfocused worktrees in _Quick Open_ and workspace search results using managed `search.exclude` patterns.
+
+> It does not hide open editor tabs or remove files from VS Code's stored editor history. Disable the setting to keep unfocused worktrees in search results.
+
 ### Opening Worktrees
 
 Run **Orchardist: Open Worktree in New Window** (`orchardist.openWorktreeInNewWindow`) to select an active worktree and open it in a new window.
@@ -64,6 +68,12 @@ Defaults to `${workspaceFolderBasename}.wt.code-workspace`. Set the workspace fi
 ### `orchardist.ignoreWorkspaceFile`
 
 Defaults to `true`. Set to `false` to stop the extension from automatically adding the workspace file to `.gitignore`.
+
+### `orchardist.filterFiles`
+
+Defaults to `true`. Set to `false` to keep files from unfocused worktrees in Quick Open and workspace search results.
+
+See [Focusing Worktree](#focusing-worktree) for details.
 
 ### `orchardist.discriminators`
 

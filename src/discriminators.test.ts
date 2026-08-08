@@ -154,6 +154,58 @@ describe("workspace discriminator settings", () => {
       "workbench.editor.customLabels.patterns": { custom: "label" },
     });
   });
+
+  it("filters unfocused worktrees while preserving user search exclusions", () => {
+    const filtered = updateDiscriminatorSettings(
+      `{ "folders": [], "settings": {
+        "search.exclude": { "**/generated/**": true }
+      } }`,
+      [],
+      [],
+      false,
+      ["/repo/feature", "/worktrees/other"],
+    );
+    const parsed = JSON.parse(filtered);
+    expect(parsed.settings).toMatchObject({
+      "orchardist.fileExcludePatterns": [
+        "/repo/feature/**",
+        "/worktrees/other/**",
+      ],
+      "search.exclude": {
+        "**/generated/**": true,
+        "/repo/feature/**": true,
+        "/worktrees/other/**": true,
+      },
+    });
+
+    const restored = updateDiscriminatorSettings(filtered, [], [], false);
+    expect(JSON.parse(restored).settings).toMatchObject({
+      "search.exclude": { "**/generated/**": true },
+    });
+    expect(
+      JSON.parse(restored).settings["orchardist.fileExcludePatterns"],
+    ).toBeUndefined();
+  });
+
+  it("replaces only previously owned file exclusions", () => {
+    const next = updateDiscriminatorSettings(
+      `{ "folders": [], "settings": {
+        "orchardist.fileExcludePatterns": ["/repo/old/**"],
+        "search.exclude": {
+          "/repo/old/**": true,
+          "/repo/user/**": false
+        }
+      } }`,
+      [],
+      [],
+      false,
+      ["/repo/new"],
+    );
+    expect(JSON.parse(next).settings["search.exclude"]).toEqual({
+      "/repo/user/**": false,
+      "/repo/new/**": true,
+    });
+  });
 });
 
 it("serializes terminal environment records", () => {

@@ -113,6 +113,12 @@
           "scope": "window",
           "description": "Automatically add the generated workspace file to .gitignore."
         },
+        "orchardist.filterFiles": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "description": "Hide files from unfocused worktrees in Quick Open and workspace search results using managed absolute search.exclude patterns."
+        },
         "orchardist.discriminators": {
           "type": "boolean",
           "default": false,
@@ -159,6 +165,15 @@
           "default": [],
           "scope": "window",
           "description": "Orchardist-managed custom label patterns used to clean up stale worktree labels. Do not edit this setting manually."
+        },
+        "orchardist.fileExcludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "description": "Orchardist-managed search exclusion patterns used to hide unfocused worktrees from Quick Open and workspace search results. Do not edit this setting manually."
         }
       }
     }
