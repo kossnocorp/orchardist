@@ -24,6 +24,12 @@ describe("resolveWorkspaceFileName", () => {
 });
 
 describe("workspaceFileContent", () => {
+  it("creates a workspace with only the main worktree", () => {
+    expect(JSON.parse(workspaceFileContent("/repo", "main", []))).toEqual({
+      folders: [{ path: ".", name: "main" }],
+    });
+  });
+
   it("creates relative roots for internal and external worktrees", () => {
     expect(
       JSON.parse(

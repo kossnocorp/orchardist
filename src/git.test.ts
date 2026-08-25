@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseWorktreePorcelain } from "./git.ts";
+import { hasAddedWorktree, parseWorktreePorcelain } from "./git.ts";
+
+const worktree = (path: string) => ({
+  path,
+  detached: false,
+  locked: false,
+});
 
 describe("parseWorktreePorcelain", () => {
   it("parses main, detached, locked, external, and unusual worktree paths", () => {
@@ -62,5 +68,25 @@ describe("parseWorktreePorcelain", () => {
       "/repo",
       "/valid",
     ]);
+  });
+});
+
+describe("hasAddedWorktree", () => {
+  it("detects a newly linked worktree", () => {
+    expect(
+      hasAddedWorktree(
+        [worktree("/repo/alpha")],
+        [worktree("/repo/alpha"), worktree("/repo/beta")],
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores metadata changes and removed worktrees", () => {
+    expect(
+      hasAddedWorktree(
+        [worktree("/repo/alpha"), worktree("/repo/beta")],
+        [{ ...worktree("/repo/alpha"), locked: true }],
+      ),
+    ).toBe(false);
   });
 });

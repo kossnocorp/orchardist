@@ -31,6 +31,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "orchardist.bootstrap",
+        "title": "Bootstrap Workspace",
+        "category": "Orchardist"
+      },
+      {
         "command": "orchardist.focusWorktree",
         "title": "Focus Single Worktree",
         "category": "Orchardist"
@@ -58,6 +63,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "orchardist.bootstrap",
+          "when": "orchardist.bootstrapAvailable"
+        },
         {
           "command": "orchardist.focusWorktree",
           "when": "orchardist.managedWorkspace"
@@ -88,12 +97,6 @@
           "default": true,
           "scope": "window",
           "description": "Automatically synchronize workspace folders."
-        },
-        "orchardist.alwaysBootstrap": {
-          "type": "boolean",
-          "default": false,
-          "scope": "window",
-          "description": "Bootstrap a detected worktree workspace without asking for confirmation."
         },
         "orchardist.mainName": {
           "type": "string",

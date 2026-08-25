@@ -12,6 +12,10 @@ It allows you to work in a single VS Code window with multiple worktrees, withou
 
 ## Features
 
+### Bootstrapping Workspace
+
+Run **Orchardist: Bootstrap Workspace** (`orchardist.bootstrap`) from any of the repository's worktrees to create and open an Orchardist workspace. Orchardist finds the main worktree and creates the workspace file there.
+
 ### Focusing Worktree
 
 Run **Orchardist: Focus Single Worktree** (`orchardist.focusWorktree`) to select one of the repository's active worktrees and hide the others.
@@ -52,10 +56,6 @@ Run **Orchardist: New Terminal** (`orchardist.newTerminal`) to create worktree t
 ### `orchardist.enabled`
 
 Defaults to `true`. Set to `false` to disable the extension.
-
-### `orchardist.alwaysBootstrap`
-
-Defaults to `false`. Set to `true` to automatically bootstrap a workspace regardless of whether a repository has worktrees.
 
 ### `orchardist.mainName`
 

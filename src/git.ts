@@ -113,6 +113,14 @@ export function parseWorktreePorcelain(output: string): GitWorktree[] {
     }));
 }
 
+export function hasAddedWorktree(
+  known: readonly GitWorktree[],
+  current: readonly GitWorktree[],
+): boolean {
+  const knownPaths = new Set(known.map((worktree) => worktree.path));
+  return current.some((worktree) => !knownPaths.has(worktree.path));
+}
+
 function toRecord(record: PorcelainRecordBuilder): PorcelainRecord {
   return {
     path: record.path!,

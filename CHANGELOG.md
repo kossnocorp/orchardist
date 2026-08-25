@@ -8,6 +8,22 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## Unreleased
+
+### Added
+
+- Added **Orchardist: Bootstrap Workspace** (`orchardist.bootstrap`) to bootstrap a repository before it has linked worktrees.
+
+### Changed
+
+- Made bootstrapping available from any worktree while keeping the generated workspace in the main worktree.
+
+- Made Orchardist continue watching unbootstrapped repositories and suggest bootstrapping when a linked worktree is created.
+
+### Removed
+
+- Removed the `orchardist.alwaysBootstrap` option. Creating a workspace now always requires an explicit command or confirmation.
+
 ## v0.5.1 - 2026-08-08
 
 ### Fixed

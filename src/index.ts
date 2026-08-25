@@ -17,6 +17,7 @@ import {
 } from "./discriminators.ts";
 import {
   discoverGitRepository,
+  hasAddedWorktree,
   type GitRepositorySnapshot,
   type GitWorktree,
 } from "./git.ts";
@@ -30,12 +31,14 @@ import { worktreePickerItems } from "./pickers.ts";
 import { terminalColor } from "./terminals.ts";
 
 const configurationSection = "orchardist";
+const bootstrapCommand = "orchardist.bootstrap";
 const focusSingleCommand = "orchardist.focusWorktree";
 const focusMultipleCommand = "orchardist.focusMultipleWorktrees";
 const unfocusCommand = "orchardist.unfocusWorktree";
 const openWorktreeInNewWindowCommand = "orchardist.openWorktreeInNewWindow";
 const newTerminalCommand = "orchardist.newTerminal";
 const worktreeActionsCommand = "orchardist.showWorktreeActions";
+const bootstrapAvailableContext = "orchardist.bootstrapAvailable";
 const managedWorkspaceContext = "orchardist.managedWorkspace";
 const focusedWorktreeContext = "orchardist.focusedWorktree";
 const focusModeContext = "orchardist.focusMode";
@@ -84,8 +87,6 @@ export async function activate(
   const workspaceUri = vscode.Uri.joinPath(mainUri, workspaceFileName);
 
   if (!isCurrentWorkspace(workspaceUri)) {
-    if (!pathsEqual(openedFolder.uri.fsPath, snapshot.main.path)) return;
-
     if (await fileExists(workspaceUri)) {
       const choice = await vscode.window.showInformationMessage(
         "Orchardist found an existing worktree workspace. Do you want to open it?",
@@ -101,18 +102,160 @@ export async function activate(
       return;
     }
 
-    if (snapshot.linked.length === 0) return;
+    let timer: NodeJS.Timeout | undefined;
+    let checkQueue = Promise.resolve();
+    let prompting = false;
+    let openingWorkspace = false;
+    let knownLinked = snapshot.linked;
 
-    const alwaysBootstrap = configuration.get("alwaysBootstrap", false);
-    const choice = alwaysBootstrap
-      ? bootstrapAction
-      : await vscode.window.showInformationMessage(
+    const openOrBootstrap = async (
+      currentConfiguration: vscode.WorkspaceConfiguration,
+      currentSnapshot: GitRepositorySnapshot,
+      currentWorkspaceUri: vscode.Uri,
+    ): Promise<void> => {
+      if (openingWorkspace) return;
+      openingWorkspace = true;
+      try {
+        if (await fileExists(currentWorkspaceUri)) {
+          await vscode.commands.executeCommand(
+            "vscode.openFolder",
+            currentWorkspaceUri,
+            false,
+          );
+        } else {
+          await bootstrapWorkspace(
+            context,
+            currentConfiguration,
+            currentSnapshot,
+            currentWorkspaceUri,
+          );
+        }
+      } catch (error) {
+        openingWorkspace = false;
+        throw error;
+      }
+    };
+
+    const offerBootstrap = async (
+      currentConfiguration: vscode.WorkspaceConfiguration,
+      currentSnapshot: GitRepositorySnapshot,
+      currentWorkspaceUri: vscode.Uri,
+    ): Promise<void> => {
+      if (prompting || openingWorkspace) return;
+      prompting = true;
+      try {
+        const choice = await vscode.window.showInformationMessage(
           "Orchardist detected worktrees. Do you want to bootstrap this workspace?",
           bootstrapAction,
         );
-    if (choice !== bootstrapAction) return;
+        if (choice === bootstrapAction) {
+          await openOrBootstrap(
+            currentConfiguration,
+            currentSnapshot,
+            currentWorkspaceUri,
+          );
+        }
+      } finally {
+        prompting = false;
+      }
+    };
 
-    await bootstrapWorkspace(context, configuration, snapshot, workspaceUri);
+    const rediscover = async (): Promise<{
+      configuration: vscode.WorkspaceConfiguration;
+      snapshot: GitRepositorySnapshot;
+      workspaceUri: vscode.Uri;
+    }> => {
+      const currentConfiguration = vscode.workspace.getConfiguration(
+        configurationSection,
+        openedFolder.uri,
+      );
+      const currentSnapshot = await discoverGitRepository(
+        gitPath,
+        openedFolder.uri.fsPath,
+      );
+      const currentWorkspaceFileName = resolveWorkspaceFileName(
+        currentConfiguration.get(
+          "workspaceFileName",
+          "${workspaceFolderBasename}.wt.code-workspace",
+        ),
+        projectName(vscode.Uri.file(currentSnapshot.main.path)),
+      );
+      return {
+        configuration: currentConfiguration,
+        snapshot: currentSnapshot,
+        workspaceUri: vscode.Uri.joinPath(
+          vscode.Uri.file(currentSnapshot.main.path),
+          currentWorkspaceFileName,
+        ),
+      };
+    };
+
+    const checkForAddedWorktrees = async (): Promise<void> => {
+      try {
+        const current = await rediscover();
+        const added = hasAddedWorktree(knownLinked, current.snapshot.linked);
+        knownLinked = current.snapshot.linked;
+        if (!added || (await fileExists(current.workspaceUri))) return;
+        await offerBootstrap(
+          current.configuration,
+          current.snapshot,
+          current.workspaceUri,
+        );
+      } catch (error) {
+        await showGitError(error);
+      }
+    };
+
+    const scheduleCheck = (): void => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        checkQueue = checkQueue.then(
+          checkForAddedWorktrees,
+          checkForAddedWorktrees,
+        );
+      }, 200);
+    };
+
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(
+        vscode.Uri.file(snapshot.commonDirectory),
+        "worktrees/**",
+      ),
+    );
+    watcher.onDidCreate(scheduleCheck);
+    watcher.onDidChange(scheduleCheck);
+    watcher.onDidDelete(scheduleCheck);
+    const nativeWatcher = createNativeWorktreeWatcher(
+      snapshot.commonDirectory,
+      scheduleCheck,
+    );
+
+    await vscode.commands.executeCommand(
+      "setContext",
+      bootstrapAvailableContext,
+      true,
+    );
+    context.subscriptions.push(
+      watcher,
+      nativeWatcher,
+      vscode.commands.registerCommand(bootstrapCommand, async () => {
+        try {
+          const current = await rediscover();
+          await openOrBootstrap(
+            current.configuration,
+            current.snapshot,
+            current.workspaceUri,
+          );
+        } catch (error) {
+          await showGitError(error);
+        }
+      }),
+      { dispose: () => timer && clearTimeout(timer) },
+    );
+
+    if (snapshot.linked.length > 0) {
+      await offerBootstrap(configuration, snapshot, workspaceUri);
+    }
     return;
   }
 
