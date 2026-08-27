@@ -16,6 +16,7 @@ export const defaultDiscriminatorSymbols = [
 export const discriminatorHistorySetting = "orchardist.discriminatorHistory";
 const discriminatorPatternsSetting = "orchardist.discriminatorPatterns";
 const fileExcludePatternsSetting = "orchardist.fileExcludePatterns";
+const archivedWorktreesSetting = "orchardist.archivedWorktrees";
 
 export interface WorktreeIdentity {
   readonly path: string;
@@ -155,6 +156,7 @@ export function updateDiscriminatorSettings(
   history: readonly (string | null)[] = [],
   visualsEnabled = true,
   quickOpenExcludedPaths: readonly string[] = [],
+  archivedWorktreePaths?: readonly string[],
 ): string {
   const workspace = parse(content) as {
     settings?: Record<string, unknown>;
@@ -250,6 +252,12 @@ export function updateDiscriminatorSettings(
       Object.keys(nextSearchExclude).length > 0 ? nextSearchExclude : undefined,
     ],
   );
+  if (archivedWorktreePaths !== undefined) {
+    changes.push([
+      ["settings", archivedWorktreesSetting],
+      archivedWorktreePaths,
+    ]);
+  }
 
   let next = content;
   for (const [jsonPath, value] of changes) {

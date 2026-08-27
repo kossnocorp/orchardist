@@ -1,6 +1,7 @@
 import { watch, type FSWatcher } from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
+import { partitionArchivedWorktrees } from "./archive.ts";
 import {
   addGitignoreEntry,
   parseWorkspaceFolders,
@@ -35,6 +36,8 @@ const bootstrapCommand = "orchardist.bootstrap";
 const focusSingleCommand = "orchardist.focusWorktree";
 const focusMultipleCommand = "orchardist.focusMultipleWorktrees";
 const unfocusCommand = "orchardist.unfocusWorktree";
+const archiveWorktreesCommand = "orchardist.archiveWorktrees";
+const unarchiveWorktreesCommand = "orchardist.unarchiveWorktrees";
 const openWorktreeInNewWindowCommand = "orchardist.openWorktreeInNewWindow";
 const newTerminalCommand = "orchardist.newTerminal";
 const worktreeActionsCommand = "orchardist.showWorktreeActions";
@@ -42,6 +45,8 @@ const bootstrapAvailableContext = "orchardist.bootstrapAvailable";
 const managedWorkspaceContext = "orchardist.managedWorkspace";
 const focusedWorktreeContext = "orchardist.focusedWorktree";
 const focusModeContext = "orchardist.focusMode";
+const archivableWorktreesContext = "orchardist.archivableWorktrees";
+const archivedWorktreesContext = "orchardist.archivedWorktrees";
 const managedWorktreesKey = "managedWorktrees";
 const discriminatorEnvironmentVariable = "ORCHARDIST_DISCRIMINATORS";
 const bootstrapAction = "Bootstrap Workspace";
@@ -266,14 +271,31 @@ export async function activate(
 
   let timer: NodeJS.Timeout | undefined;
   let syncQueue = Promise.resolve();
+  const initialArchive = partitionArchivedWorktrees(
+    snapshot.main,
+    snapshot.linked,
+    configuration.get<readonly unknown[]>("archivedWorktrees", []),
+  );
+  let archivedPaths = initialArchive.archivedPaths;
   let focusedPaths = inferFocusedPaths(
     vscode.workspace.workspaceFolders ?? [],
-    [snapshot.main, ...snapshot.linked],
+    initialArchive.active,
   );
   let expectedWorkspaceUris: readonly string[] | undefined;
   let latestDiscriminatorPlan: ReturnType<typeof assignDiscriminators>;
   let latestIdentities: ReturnType<typeof sortWorktrees> = [];
+  let latestActiveIdentities: ReturnType<typeof sortWorktrees> = [];
   let latestDiscriminatorVisuals = false;
+  const identitiesFor = (
+    current: GitRepositorySnapshot,
+    currentConfiguration: vscode.WorkspaceConfiguration,
+  ): ReturnType<typeof sortWorktrees> =>
+    sortWorktrees(
+      current.main.path,
+      currentConfiguration.get("mainName", "main"),
+      current.linked.map((worktree) => worktree.path),
+      projectName(workspaceUri),
+    );
   const status = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
   );
@@ -293,12 +315,7 @@ export async function activate(
 
     const current = await discoverGitRepository(gitPath, mainFolder.uri.fsPath);
     const mainName = currentConfiguration.get("mainName", "main");
-    const identities = sortWorktrees(
-      current.main.path,
-      mainName,
-      current.linked.map((worktree) => worktree.path),
-      projectName(workspaceUri),
-    );
+    const identities = identitiesFor(current, currentConfiguration);
     const worktreeByPath = new Map(
       [current.main, ...current.linked].map((worktree) => [
         worktree.path,
@@ -309,6 +326,22 @@ export async function activate(
       const worktree = worktreeByPath.get(identity.path);
       return worktree ? [worktree] : [];
     });
+    const archive = partitionArchivedWorktrees(
+      current.main,
+      current.linked,
+      archivedPaths,
+    );
+    archivedPaths = archive.archivedPaths;
+    const activeWorktrees = worktrees.filter((worktree) =>
+      archive.active.some((candidate) =>
+        pathsEqual(candidate.path, worktree.path),
+      ),
+    );
+    const activeIdentities = identities.filter((identity) =>
+      activeWorktrees.some((worktree) =>
+        pathsEqual(worktree.path, identity.path),
+      ),
+    );
     const discriminatorPlan = await planDiscriminators(
       currentConfiguration,
       workspaceUri,
@@ -320,6 +353,7 @@ export async function activate(
       false,
     );
     latestIdentities = identities;
+    latestActiveIdentities = activeIdentities;
     latestDiscriminatorVisuals = discriminatorVisuals;
     const displayName = (worktreePath: string, name: string): string => {
       const discriminator = discriminatorPlan.discriminators.find((candidate) =>
@@ -329,7 +363,7 @@ export async function activate(
         ? `${discriminator.symbol} ${name}`
         : name;
     };
-    const focused = worktrees.filter((worktree) =>
+    const focused = activeWorktrees.filter((worktree) =>
       focusedPaths.some((focusedPath) =>
         pathsEqual(worktree.path, focusedPath),
       ),
@@ -349,62 +383,77 @@ export async function activate(
           ? "single"
           : undefined,
     );
+    await vscode.commands.executeCommand(
+      "setContext",
+      archivableWorktreesContext,
+      activeWorktrees.length > 1,
+    );
+    await vscode.commands.executeCommand(
+      "setContext",
+      archivedWorktreesContext,
+      archive.archived.length > 0,
+    );
 
-    const linkedIdentities = identities.slice(1);
+    const linkedIdentities = activeIdentities.filter(
+      (identity) => !pathsEqual(identity.path, current.main.path),
+    );
     const desired = linkedIdentities.map((identity) => ({
       uri: vscode.Uri.file(identity.path),
       name: displayName(identity.path, identity.name),
     }));
-    const availableUris = worktrees.map((worktree) =>
+    const availableUris = activeWorktrees.map((worktree) =>
       vscode.Uri.file(worktree.path).toString(),
     );
     const previouslyManaged =
       context.workspaceState.get<readonly string[]>(managedWorktreesKey) ?? [];
+    const managedUris = [
+      ...previouslyManaged,
+      ...current.linked.map((worktree) =>
+        vscode.Uri.file(worktree.path).toString(),
+      ),
+    ];
     await context.workspaceState.update(
       managedWorktreesKey,
-      desired.map((folder) => folder.uri.toString()),
+      current.linked.map((worktree) =>
+        vscode.Uri.file(worktree.path).toString(),
+      ),
     );
 
-    if (focused.length > 0) {
-      reconcileFocusedWorkspaceFolders(
-        availableUris,
-        previouslyManaged,
-        focused.map((worktree) => {
-          const identity = identities.find((candidate) =>
-            pathsEqual(candidate.path, worktree.path),
+    const reconciledFolders =
+      focused.length > 0
+        ? reconcileFocusedWorkspaceFolders(
+            availableUris,
+            managedUris,
+            focused.map((worktree) => {
+              const identity = identities.find((candidate) =>
+                pathsEqual(candidate.path, worktree.path),
+              );
+              const name = identity?.name ?? path.basename(worktree.path);
+              return {
+                uri: vscode.Uri.file(worktree.path),
+                name: displayName(worktree.path, name),
+              };
+            }),
+            (nextUris) => {
+              expectedWorkspaceUris = nextUris;
+            },
+          )
+        : reconcileWorkspaceFolders(
+            vscode.Uri.file(current.main.path),
+            displayName(current.main.path, mainName),
+            managedUris,
+            desired,
+            (nextUris) => {
+              expectedWorkspaceUris = nextUris;
+            },
           );
-          const name = identity?.name ?? path.basename(worktree.path);
-          return {
-            uri: vscode.Uri.file(worktree.path),
-            name: displayName(worktree.path, name),
-          };
-        }),
-        () => {
-          expectedWorkspaceUris = focused.map((worktree) =>
-            vscode.Uri.file(worktree.path).toString(),
-          );
-        },
-      );
-    } else {
-      reconcileWorkspaceFolders(
-        vscode.Uri.file(current.main.path),
-        displayName(current.main.path, mainName),
-        previouslyManaged,
-        desired,
-        () => {
-          expectedWorkspaceUris = availableUris;
-        },
-      );
-    }
 
     await synchronizeDiscriminatorSettings(
       context,
       workspaceUri,
       discriminatorPlan,
       discriminatorVisuals,
-      focused.length > 0
-        ? focused.map((worktree) => worktree.path)
-        : identities.map((identity) => identity.path),
+      reconciledFolders.map((folder) => folder.fsPath),
       currentConfiguration.get("filterFiles", true) && focused.length > 0
         ? worktrees
             .filter(
@@ -415,14 +464,15 @@ export async function activate(
             )
             .map((worktree) => worktree.path)
         : [],
+      archive.archivedPaths,
     );
 
     updateStatus(
       status,
       focused,
-      worktrees.length,
+      activeWorktrees.length,
       pickerItems(
-        identities,
+        activeIdentities,
         discriminatorPlan.discriminators,
         discriminatorVisuals,
       ),
@@ -437,10 +487,24 @@ export async function activate(
     }
   };
 
+  const queueSync = (): Promise<void> => {
+    syncQueue = syncQueue.then(syncWithErrors, syncWithErrors);
+    return syncQueue;
+  };
+
+  const queueArchiveSync = (mutate: () => void): Promise<void> => {
+    const mutateAndSync = async (): Promise<void> => {
+      mutate();
+      await syncWithErrors();
+    };
+    syncQueue = syncQueue.then(mutateAndSync, mutateAndSync);
+    return syncQueue;
+  };
+
   const scheduleSync = (): void => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      syncQueue = syncQueue.then(syncWithErrors, syncWithErrors);
+      void queueSync();
     }, 200);
   };
 
@@ -465,7 +529,11 @@ export async function activate(
   );
   const syncWorkspaceFocus = async (): Promise<void> => {
     const current = await discoverGitRepository(gitPath, mainFolder.uri.fsPath);
-    const worktrees = [current.main, ...current.linked];
+    const worktrees = partitionArchivedWorktrees(
+      current.main,
+      current.linked,
+      archivedPaths,
+    ).active;
     const workspacePaths = await readWorkspacePaths(workspaceUri);
     const workspaceUris = workspacePaths.map((workspacePath) =>
       vscode.Uri.file(workspacePath).toString(),
@@ -480,7 +548,7 @@ export async function activate(
 
     expectedWorkspaceUris = undefined;
     focusedPaths = inferFocusedPathsFromPaths(workspacePaths, worktrees);
-    await syncWithErrors();
+    await queueSync();
   };
   workspaceWatcher.onDidCreate(() => void syncWorkspaceFocus());
   workspaceWatcher.onDidChange(() => void syncWorkspaceFocus());
@@ -497,16 +565,25 @@ export async function activate(
           gitPath,
           mainFolder.uri.fsPath,
         );
+        const currentConfiguration = vscode.workspace.getConfiguration(
+          configurationSection,
+          mainFolder.uri,
+        );
+        const active = partitionArchivedWorktrees(
+          current.main,
+          current.linked,
+          archivedPaths,
+        ).active;
         const selected = await selectWorktree(
-          [current.main, ...current.linked],
-          latestIdentities,
+          active,
+          identitiesFor(current, currentConfiguration),
           latestDiscriminatorPlan.discriminators,
           latestDiscriminatorVisuals,
         );
         if (!selected) return;
 
         focusedPaths = [selected.path];
-        await syncWithErrors();
+        await queueSync();
       } catch (error) {
         await showGitError(error);
       }
@@ -517,27 +594,119 @@ export async function activate(
           gitPath,
           mainFolder.uri.fsPath,
         );
+        const currentConfiguration = vscode.workspace.getConfiguration(
+          configurationSection,
+          mainFolder.uri,
+        );
+        const active = partitionArchivedWorktrees(
+          current.main,
+          current.linked,
+          archivedPaths,
+        ).active;
         const selected = await selectWorktrees(
-          [current.main, ...current.linked],
+          active,
           focusedPaths,
-          latestIdentities,
+          identitiesFor(current, currentConfiguration),
           latestDiscriminatorPlan.discriminators,
           latestDiscriminatorVisuals,
         );
         if (!selected || selected.length === 0) return;
 
         focusedPaths =
-          selected.length === current.linked.length + 1
+          selected.length === active.length
             ? []
             : selected.map((worktree) => worktree.path);
-        await syncWithErrors();
+        await queueSync();
       } catch (error) {
         await showGitError(error);
       }
     }),
     vscode.commands.registerCommand(unfocusCommand, async () => {
       focusedPaths = [];
-      await syncWithErrors();
+      await queueSync();
+    }),
+    vscode.commands.registerCommand(archiveWorktreesCommand, async () => {
+      try {
+        const current = await discoverGitRepository(
+          gitPath,
+          mainFolder.uri.fsPath,
+        );
+        const currentConfiguration = vscode.workspace.getConfiguration(
+          configurationSection,
+          mainFolder.uri,
+        );
+        const archive = partitionArchivedWorktrees(
+          current.main,
+          current.linked,
+          archivedPaths,
+        );
+        const selected = await selectWorktrees(
+          archive.active.filter(
+            (worktree) => !pathsEqual(worktree.path, current.main.path),
+          ),
+          [],
+          identitiesFor(current, currentConfiguration),
+          latestDiscriminatorPlan.discriminators,
+          latestDiscriminatorVisuals,
+          "Archive Worktrees",
+          "Select worktrees to archive",
+        );
+        if (!selected || selected.length === 0) return;
+
+        const selectedPaths = selected.map(({ path }) => path);
+        await queueArchiveSync(() => {
+          archivedPaths = [
+            ...archivedPaths,
+            ...selectedPaths.filter(
+              (selectedPath) =>
+                !archivedPaths.some((archivedPath) =>
+                  pathsEqual(archivedPath, selectedPath),
+                ),
+            ),
+          ];
+        });
+      } catch (error) {
+        await showGitError(error);
+      }
+    }),
+    vscode.commands.registerCommand(unarchiveWorktreesCommand, async () => {
+      try {
+        const current = await discoverGitRepository(
+          gitPath,
+          mainFolder.uri.fsPath,
+        );
+        const currentConfiguration = vscode.workspace.getConfiguration(
+          configurationSection,
+          mainFolder.uri,
+        );
+        const archive = partitionArchivedWorktrees(
+          current.main,
+          current.linked,
+          archivedPaths,
+        );
+        const selected = await selectWorktrees(
+          archive.archived,
+          [],
+          identitiesFor(current, currentConfiguration),
+          latestDiscriminatorPlan.discriminators,
+          latestDiscriminatorVisuals,
+          "Unarchive Worktrees",
+          "Select worktrees to unarchive",
+        );
+        if (!selected || selected.length === 0) return;
+
+        const selectedPaths = selected.map(({ path }) => path);
+        await queueArchiveSync(() => {
+          archivedPaths = archivedPaths.filter(
+            (archivedPath) =>
+              !selectedPaths.some((selectedPath) =>
+                pathsEqual(archivedPath, selectedPath),
+              ),
+          );
+        });
+      } catch (error) {
+        await showGitError(error);
+      }
     }),
     vscode.commands.registerCommand(
       openWorktreeInNewWindowCommand,
@@ -547,9 +716,18 @@ export async function activate(
             gitPath,
             mainFolder.uri.fsPath,
           );
+          const currentConfiguration = vscode.workspace.getConfiguration(
+            configurationSection,
+            mainFolder.uri,
+          );
+          const active = partitionArchivedWorktrees(
+            current.main,
+            current.linked,
+            archivedPaths,
+          ).active;
           const selected = await selectWorktree(
-            [current.main, ...current.linked],
-            latestIdentities,
+            active,
+            identitiesFor(current, currentConfiguration),
             latestDiscriminatorPlan.discriminators,
             latestDiscriminatorVisuals,
             "Open Worktree in New Window",
@@ -575,7 +753,7 @@ export async function activate(
         activePaths.length === 1
           ? activePaths[0]
           : await selectWorktreePath(
-              latestIdentities,
+              latestActiveIdentities,
               latestDiscriminatorPlan.discriminators,
               latestDiscriminatorVisuals,
               "New Terminal",
@@ -629,6 +807,20 @@ export async function activate(
       if (selected) await vscode.commands.executeCommand(selected.command);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
+      if (
+        event.affectsConfiguration(
+          `${configurationSection}.archivedWorktrees`,
+          mainFolder.uri,
+        )
+      ) {
+        archivedPaths = vscode.workspace
+          .getConfiguration(configurationSection, mainFolder.uri)
+          .get<readonly unknown[]>("archivedWorktrees", [])
+          .filter(
+            (archivedPath): archivedPath is string =>
+              typeof archivedPath === "string",
+          );
+      }
       if (event.affectsConfiguration(configurationSection, mainFolder.uri)) {
         scheduleSync();
       }
@@ -636,7 +828,7 @@ export async function activate(
     { dispose: () => timer && clearTimeout(timer) },
   );
 
-  await syncWithErrors();
+  await queueSync();
 }
 
 export function deactivate(): void {}
@@ -761,6 +953,7 @@ async function synchronizeDiscriminatorSettings(
   visualsEnabled: boolean,
   expectedPaths: readonly string[],
   quickOpenExcludedPaths: readonly string[],
+  archivedWorktreePaths: readonly string[],
 ): Promise<void> {
   const content = await readWorkspaceContentWithPaths(
     workspaceUri,
@@ -773,6 +966,7 @@ async function synchronizeDiscriminatorSettings(
     plan.history,
     visualsEnabled,
     quickOpenExcludedPaths,
+    archivedWorktreePaths,
   );
   if (next !== content) {
     await vscode.workspace.fs.writeFile(
@@ -894,8 +1088,8 @@ function reconcileWorkspaceFolders(
   mainName: string,
   previouslyManagedUris: readonly string[],
   desired: readonly { uri: vscode.Uri; name: string }[],
-  beforeUpdate?: () => void,
-): void {
+  beforeUpdate?: (nextUris: readonly string[]) => void,
+): readonly vscode.Uri[] {
   const current = vscode.workspace.workspaceFolders ?? [];
   const next = planWorkspaceFolders(
     current.map((folder) => ({
@@ -920,7 +1114,7 @@ function reconcileWorkspaceFolders(
       next,
     )
   ) {
-    beforeUpdate?.();
+    beforeUpdate?.(next.map((folder) => folder.uri));
     vscode.workspace.updateWorkspaceFolders(
       0,
       current.length,
@@ -930,14 +1124,15 @@ function reconcileWorkspaceFolders(
       })),
     );
   }
+  return next.map((folder) => vscode.Uri.parse(folder.uri));
 }
 
 function reconcileFocusedWorkspaceFolders(
   availableUris: readonly string[],
   previouslyManagedUris: readonly string[],
   desired: readonly { uri: vscode.Uri; name: string }[],
-  beforeUpdate: () => void,
-): void {
+  beforeUpdate: (nextUris: readonly string[]) => void,
+): readonly vscode.Uri[] {
   const current = vscode.workspace.workspaceFolders ?? [];
   const next = planFocusedWorkspaceFolders(
     current.map((folder) => ({
@@ -960,10 +1155,10 @@ function reconcileFocusedWorkspaceFolders(
       next,
     )
   ) {
-    return;
+    return next.map((folder) => vscode.Uri.parse(folder.uri));
   }
 
-  beforeUpdate();
+  beforeUpdate(next.map((folder) => folder.uri));
   vscode.workspace.updateWorkspaceFolders(
     0,
     current.length,
@@ -972,6 +1167,7 @@ function reconcileFocusedWorkspaceFolders(
       name: folder.name,
     })),
   );
+  return next.map((folder) => vscode.Uri.parse(folder.uri));
 }
 
 async function readWorkspacePaths(
@@ -997,6 +1193,8 @@ async function selectWorktrees(
   identities: ReturnType<typeof sortWorktrees>,
   discriminators: ReturnType<typeof assignDiscriminators>["discriminators"],
   visualsEnabled: boolean,
+  title = "Focus Multiple Worktrees",
+  placeHolder = "Select worktrees to focus",
 ): Promise<readonly GitWorktree[] | undefined> {
   const worktreeByPath = new Map(
     worktrees.map((worktree) => [worktree.path, worktree]),
@@ -1019,8 +1217,8 @@ async function selectWorktrees(
   );
   const selected = await vscode.window.showQuickPick(items, {
     canPickMany: true,
-    placeHolder: "Select worktrees to focus",
-    title: "Focus Multiple Worktrees",
+    placeHolder,
+    title,
   });
   return selected?.map((item) => item.worktree);
 }
@@ -1033,8 +1231,11 @@ async function selectWorktree(
   title = "Focus Worktree",
   placeHolder = "Select a worktree to focus",
 ): Promise<GitWorktree | undefined> {
+  const availableIdentities = identities.filter((identity) =>
+    worktrees.some((worktree) => pathsEqual(worktree.path, identity.path)),
+  );
   const selectedPath = await selectWorktreePath(
-    identities,
+    availableIdentities,
     discriminators,
     visualsEnabled,
     title,

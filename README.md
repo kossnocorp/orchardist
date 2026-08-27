@@ -32,6 +32,12 @@ By default (disable via [`orchardist.filterFiles`](#orchardistfilterfiles)) Orch
 
 Run **Orchardist: Open Worktree in New Window** (`orchardist.openWorktreeInNewWindow`) to select an active worktree and open it in a new window.
 
+### Archiving Worktrees
+
+Run **Orchardist: Archive Worktrees** (`orchardist.archiveWorktrees`) to select linked worktrees that Orchardist should hide until they are needed again. Archived worktrees are removed from the workspace, menus, focus calculations, and the status bar total without being deleted from Git.
+
+Run **Orchardist: Unarchive Worktrees** (`orchardist.unarchiveWorktrees`) to restore archived worktrees. The main worktree cannot be archived. If focus mode is active, restored worktrees remain outside the workspace until you unfocus or select them for focus.
+
 ### Worktree Discriminators
 
 Orchardist assigns a stable symbol to each worktree (🟢🔵..., configurable via [`orchardist.discriminatorSymbols`](#orchardistdiscriminatorsymbols)). It makes VS Code show these symbols in file labels, editor and terminal tabs, and workspace dir names.

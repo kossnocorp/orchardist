@@ -14,6 +14,8 @@ This change log follows the format documented in [Keep a CHANGELOG].
 
 - Added **Orchardist: Bootstrap Workspace** (`orchardist.bootstrap`) to bootstrap a repository before it has linked worktrees.
 
+- Added **Orchardist: Archive Worktrees** (`orchardist.archiveWorktrees`) and **Orchardist: Unarchive Worktrees** (`orchardist.unarchiveWorktrees`) to reversibly hide linked worktrees from the workspace, menus, focus calculations, and status totals.
+
 ### Changed
 
 - Made bootstrapping available from any worktree while keeping the generated workspace in the main worktree.

@@ -51,6 +51,16 @@
         "category": "Orchardist"
       },
       {
+        "command": "orchardist.archiveWorktrees",
+        "title": "Archive Worktrees",
+        "category": "Orchardist"
+      },
+      {
+        "command": "orchardist.unarchiveWorktrees",
+        "title": "Unarchive Worktrees",
+        "category": "Orchardist"
+      },
+      {
         "command": "orchardist.openWorktreeInNewWindow",
         "title": "Open Worktree in New Window",
         "category": "Orchardist"
@@ -78,6 +88,14 @@
         {
           "command": "orchardist.unfocusWorktree",
           "when": "orchardist.managedWorkspace && orchardist.focusedWorktree"
+        },
+        {
+          "command": "orchardist.archiveWorktrees",
+          "when": "orchardist.managedWorkspace && orchardist.archivableWorktrees"
+        },
+        {
+          "command": "orchardist.unarchiveWorktrees",
+          "when": "orchardist.managedWorkspace && orchardist.archivedWorktrees"
         },
         {
           "command": "orchardist.openWorktreeInNewWindow",
@@ -177,6 +195,15 @@
           "default": [],
           "scope": "window",
           "description": "Orchardist-managed search exclusion patterns used to hide unfocused worktrees from Quick Open and workspace search results. Do not edit this setting manually."
+        },
+        "orchardist.archivedWorktrees": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "description": "Orchardist-managed paths of archived worktrees. Do not edit this setting manually."
         }
       }
     }

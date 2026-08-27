@@ -206,6 +206,32 @@ describe("workspace discriminator settings", () => {
       "/repo/new/**": true,
     });
   });
+
+  it("persists archived worktrees, including an explicit empty list", () => {
+    const archived = updateDiscriminatorSettings(
+      `{ "folders": [] }`,
+      [],
+      [],
+      false,
+      [],
+      ["/trees/alpha"],
+    );
+    expect(
+      JSON.parse(archived).settings["orchardist.archivedWorktrees"],
+    ).toEqual(["/trees/alpha"]);
+
+    const restored = updateDiscriminatorSettings(
+      archived,
+      [],
+      [],
+      false,
+      [],
+      [],
+    );
+    expect(
+      JSON.parse(restored).settings["orchardist.archivedWorktrees"],
+    ).toEqual([]);
+  });
 });
 
 it("serializes terminal environment records", () => {

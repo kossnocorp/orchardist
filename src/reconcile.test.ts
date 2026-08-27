@@ -45,6 +45,27 @@ describe("planWorkspaceFolders", () => {
     ]);
   });
 
+  it("removes archived worktrees while preserving unrelated folders", () => {
+    expect(
+      planWorkspaceFolders(
+        [
+          { uri: "file:///repo", name: "main" },
+          { uri: "file:///trees/active", name: "active" },
+          { uri: "file:///trees/archived", name: "archived" },
+          { uri: "file:///shared", name: "shared" },
+        ],
+        "file:///repo",
+        "main",
+        ["file:///trees/active", "file:///trees/archived"],
+        [{ uri: "file:///trees/active", name: "active" }],
+      ),
+    ).toEqual([
+      { uri: "file:///repo", name: "main" },
+      { uri: "file:///shared", name: "shared" },
+      { uri: "file:///trees/active", name: "active" },
+    ]);
+  });
+
   it("removes previously managed external worktrees by exact URI", () => {
     expect(
       planWorkspaceFolders(
@@ -147,6 +168,15 @@ describe("inferFocusedUris", () => {
     expect(
       inferFocusedUris(["file:///alpha", "file:///shared"], available),
     ).toEqual(["file:///alpha"]);
+  });
+
+  it("does not infer focus when every non-archived worktree is present", () => {
+    expect(
+      inferFocusedUris(
+        ["file:///repo", "file:///alpha"],
+        ["file:///repo", "file:///alpha"],
+      ),
+    ).toEqual([]);
   });
 });
 
