@@ -71,8 +71,6 @@ describe("workspaceFileContent", () => {
       ],
       settings: {
         "orchardist.discriminatorHistory": ["main", "feature"],
-        "terminal.integrated.tabs.title":
-          "${workspaceFolderName} ${separator} ${process}",
       },
     });
   });

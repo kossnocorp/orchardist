@@ -215,13 +215,13 @@ export function updateDiscriminatorSettings(
           ],
         ]
       : [];
-  changes.push(
-    [["settings", discriminatorHistorySetting], history],
-    [
-      ["settings", "terminal.integrated.tabs.title"],
-      "${workspaceFolderName} ${separator} ${process}",
-    ],
-  );
+  changes.push([["settings", discriminatorHistorySetting], history]);
+  if (
+    settings["terminal.integrated.tabs.title"] ===
+    "${workspaceFolderName} ${separator} ${process}"
+  ) {
+    changes.push([["settings", "terminal.integrated.tabs.title"], undefined]);
+  }
 
   const previousQuickOpenPatterns = settings[fileExcludePatternsSetting];
   const ownedQuickOpenPatterns = Array.isArray(previousQuickOpenPatterns)

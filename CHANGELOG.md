@@ -26,6 +26,8 @@ This change log follows the format documented in [Keep a CHANGELOG].
 
 - Removed the `orchardist.alwaysBootstrap` option. Creating a workspace now always requires an explicit command or confirmation.
 
+- Removed the managed `terminal.integrated.tabs.title` workspace setting because `${workspaceFolderName}` reflects VS Code's workspace data rather than the terminal's current directory, which can produce misleading terminal tab titles.
+
 ## v0.5.1 - 2026-08-08
 
 ### Fixed

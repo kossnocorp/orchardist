@@ -40,7 +40,7 @@ Run **Orchardist: Unarchive Worktrees** (`orchardist.unarchiveWorktrees`) to res
 
 ### Worktree Discriminators
 
-Orchardist assigns a stable symbol to each worktree (🟢🔵..., configurable via [`orchardist.discriminatorSymbols`](#orchardistdiscriminatorsymbols)). It makes VS Code show these symbols in file labels, editor and terminal tabs, and workspace dir names.
+Orchardist assigns a stable symbol to each worktree (🟢🔵..., configurable via [`orchardist.discriminatorSymbols`](#orchardistdiscriminatorsymbols)). It makes VS Code show these symbols in file labels, editor tabs, and workspace dir names.
 
 Set `orchardist.discriminators` to `true` to enable the feature:
 
@@ -83,7 +83,7 @@ See [Focusing Worktree](#focusing-worktree) for details.
 
 ### `orchardist.discriminators`
 
-Defaults to `false`. Set to `true` to show worktree symbols in file labels, editor and terminal tabs, and workspace dir names.
+Defaults to `false`. Set to `true` to show worktree symbols in file labels, editor tabs, and workspace dir names.
 
 See [Worktree Discriminators](#worktree-discriminators) for details.
 

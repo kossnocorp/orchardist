@@ -117,8 +117,6 @@ describe("workspace discriminator settings", () => {
     expect(parsed.settings).toMatchObject({
       "orchardist.discriminatorHistory": ["main"],
       "orchardist.discriminatorPatterns": ["/repo/main/.*", "/repo/main/**"],
-      "terminal.integrated.tabs.title":
-        "${workspaceFolderName} ${separator} ${process}",
       "workbench.editor.customLabels.enabled": true,
       "workbench.editor.customLabels.patterns": {
         "**/*.test.ts": "test",
@@ -149,9 +147,38 @@ describe("workspace discriminator settings", () => {
     const parsed = JSON.parse(disabled);
     expect(parsed.settings).toEqual({
       "orchardist.discriminatorHistory": ["main"],
-      "terminal.integrated.tabs.title":
-        "${workspaceFolderName} ${separator} ${process}",
       "workbench.editor.customLabels.patterns": { custom: "label" },
+    });
+  });
+
+  it("removes the previously managed terminal tab title", () => {
+    const next = updateDiscriminatorSettings(
+      `{ "folders": [], "settings": {
+        "terminal.integrated.tabs.title": "\${workspaceFolderName} \${separator} \${process}"
+      } }`,
+      [],
+      [],
+      false,
+    );
+
+    expect(JSON.parse(next).settings).toEqual({
+      "orchardist.discriminatorHistory": [],
+    });
+  });
+
+  it("preserves a custom terminal tab title", () => {
+    const next = updateDiscriminatorSettings(
+      `{ "folders": [], "settings": {
+        "terminal.integrated.tabs.title": "custom title"
+      } }`,
+      [],
+      [],
+      false,
+    );
+
+    expect(JSON.parse(next).settings).toEqual({
+      "orchardist.discriminatorHistory": [],
+      "terminal.integrated.tabs.title": "custom title",
     });
   });
 
