@@ -8,7 +8,7 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
-## Unreleased
+## v0.6.0 - 2026-08-28
 
 ### Added
 
