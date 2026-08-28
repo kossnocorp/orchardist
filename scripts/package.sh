@@ -23,12 +23,12 @@ echo "🌀 Packaging vsix..."
 
 # TODO: Figure out how to call `pnpm exec` on a different directory or pass
 # dist path to vsce
-vsce_path="$(pwd)/$(pnpm --reporter=silent -c exec which vsce)"
-cd $pkg_dist_dir
-if ! output=$($vsce_path pack \
+vsce_path="$(pnpm --reporter=silent -c exec which vsce)"
+cd "$pkg_dist_dir"
+if ! output=$("$vsce_path" pack \
 	--allow-star-activation \
 	--no-dependencies \
-	--out $vsix_path \
+	--out "$vsix_path" \
 	2>&1); then
 
 	echo "╭─ 🔴 Failed ──────────────────────────────────────╮"
