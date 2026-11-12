@@ -29,6 +29,7 @@ import {
   workspaceFoldersEqual,
 } from "./reconcile.ts";
 import { worktreePickerItems } from "./pickers.ts";
+import { showFocusPicker } from "./focus-picker.ts";
 import { terminalColor } from "./terminals.ts";
 
 const configurationSection = "orchardist";
@@ -779,32 +780,47 @@ export async function activate(
       terminal.show();
     }),
     vscode.commands.registerCommand(worktreeActionsCommand, async () => {
-      const multiple = focusedPaths.length > 1;
-      const selected = await vscode.window.showQuickPick(
-        [
-          {
-            label: multiple
-              ? "$(target) Change Focused Worktrees"
-              : "$(target) Change Focused Worktree",
-            command: multiple ? focusMultipleCommand : focusSingleCommand,
-          },
-          {
-            label: multiple
-              ? "$(list-selection) Focus Single Worktree"
-              : "$(list-selection) Focus Multiple Worktrees",
-            command: multiple ? focusSingleCommand : focusMultipleCommand,
-          },
-          {
-            label: "$(close) Unfocus",
-            command: unfocusCommand,
-          },
-        ],
-        {
-          placeHolder: "Choose a worktree action",
-          title: multiple ? "Focused Worktrees" : "Focused Worktree",
-        },
-      );
-      if (selected) await vscode.commands.executeCommand(selected.command);
+      if (focusedPaths.length === 0) {
+        await vscode.commands.executeCommand(focusSingleCommand);
+        return;
+      }
+      try {
+        const current = await discoverGitRepository(
+          gitPath,
+          mainFolder.uri.fsPath,
+        );
+        const currentConfiguration = vscode.workspace.getConfiguration(
+          configurationSection,
+          mainFolder.uri,
+        );
+        const active = partitionArchivedWorktrees(
+          current.main,
+          current.linked,
+          archivedPaths,
+        ).active;
+        const multiple = focusedPaths.length > 1;
+        const trees = pickerItems(
+          identitiesFor(current, currentConfiguration).filter((identity) =>
+            active.some((worktree) => pathsEqual(worktree.path, identity.path)),
+          ),
+          latestDiscriminatorPlan.discriminators,
+          latestDiscriminatorVisuals,
+        );
+        const selected = await showFocusPicker(
+          trees,
+          multiple,
+          focusMultipleCommand,
+          unfocusCommand,
+        );
+        if (selected?.command) {
+          await vscode.commands.executeCommand(selected.command);
+        } else if (selected?.path) {
+          focusedPaths = [selected.path];
+          await queueSync();
+        }
+      } catch (error) {
+        await showGitError(error);
+      }
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (

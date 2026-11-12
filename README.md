@@ -22,7 +22,7 @@ Run **Orchardist: Focus Single Worktree** (`orchardist.focusWorktree`) to select
 
 Run **Orchardist: Focus Multiple Worktrees** (`orchardist.focusMultipleWorktrees`) to select several active worktrees using a checkbox menu and hide the others.
 
-Use the status bar menu to change the focused worktree or worktrees, switch between single and multiple focus, or run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`) to show all worktrees again.
+Click the status bar, press **Ctrl+Shift+W**, or run **Orchardist: Worktrees Menu** (`orchardist.showWorktreeActions`) to open the worktree picker. When multiple worktrees are focused, **Select Focused** opens the native checkbox picker, and selecting any worktree focuses only that tree. Use **Unfocus** in the menu or run **Orchardist: Unfocus Worktree** (`orchardist.unfocusWorktree`) to show all worktrees again.
 
 By default (disable via [`orchardist.filterFiles`](#orchardistfilterfiles)) Orchardist hides files from unfocused worktrees in _Quick Open_ and workspace search results using managed `search.exclude` patterns.
 

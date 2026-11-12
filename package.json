@@ -29,7 +29,19 @@
     "vitest": "^4.1.10"
   },
   "contributes": {
+    "keybindings": [
+      {
+        "key": "ctrl+shift+w",
+        "command": "orchardist.showWorktreeActions",
+        "when": "orchardist.managedWorkspace"
+      }
+    ],
     "commands": [
+      {
+        "command": "orchardist.showWorktreeActions",
+        "title": "Worktrees Menu",
+        "category": "Orchardist"
+      },
       {
         "command": "orchardist.bootstrap",
         "title": "Bootstrap Workspace",
@@ -73,6 +85,10 @@
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "orchardist.showWorktreeActions",
+          "when": "orchardist.managedWorkspace"
+        },
         {
           "command": "orchardist.bootstrap",
           "when": "orchardist.bootstrapAvailable"
