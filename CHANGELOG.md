@@ -8,6 +8,18 @@ This change log follows the format documented in [Keep a CHANGELOG].
 [semantic versioning]: http://semver.org/
 [keep a changelog]: http://keepachangelog.com/
 
+## v0.7.0 - 2026-10-13
+
+### Changed
+
+- Add quick worktree select to the single & multiple worktree status bar menu.
+
+### Added
+
+- Added Worktrees Menu command (`orchardist.showWorktreeActions`) that opens the same menu as the status bar widget.
+
+- Added default shortcut (`ctrl+shift+w`) for the worktrees menu.
+
 ## v0.6.0 - 2026-08-28
 
 ### Added
