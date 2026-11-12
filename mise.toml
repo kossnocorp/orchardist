@@ -1,12 +1,12 @@
 [tools]
 # Stack
 node = "lts"
-"npm:pnpm" = "latest"
 
 # Tools
 fnox = "latest"
 shfmt = "latest"
 jaq = "latest"
+pnpm = "latest"
 
 # Tasks ########################################################################
 
